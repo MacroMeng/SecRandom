@@ -33,7 +33,7 @@
 > SecRandom 將在 GNU GPLv3 許可證下開源
 >
 > GNU GPLv3 具有 Copyleft 特性，這意味著您可以修改 SecRandom 的原始碼，但**必須也以 GNU GPLv3 許可證開源修改後的版本**
->
+---------
 > [!note]
 >
 > **SecRandom v2** 將會在 2025/12/14 (GMT +8:00 中國標準時間) 左右 發布！

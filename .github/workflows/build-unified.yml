@@ -95,19 +95,6 @@ jobs:
       - name: 检出仓库
         uses: actions/checkout@v4.2.2
 
-      - name: 验证并更新uv.lock文件
-        run: |
-          echo "验证uv.lock文件完整性..."
-          uv lock --check
-          if ($LASTEXITCODE -eq 0) {
-            echo "uv.lock文件验证通过"
-          } else {
-            echo "uv.lock文件需要更新，正在更新..."
-            uv lock
-            echo "uv.lock文件已更新"
-          }
-
-      # 依赖缓存
       - name: 缓存依赖
         uses: actions/cache@v4
         with:

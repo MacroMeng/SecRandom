@@ -44,11 +44,13 @@ class about(GroupHeaderCardWidget):
         )
 
         # 查看当前软件版本号
-        version_text = SPECIAL_VERSION
+        version_text = f"{SPECIAL_VERSION} | {CODENAME} ({SYSTEM}-{ARCH})"
         self.about_version_label = BodyLabel(version_text)
 
         # 查看当前软件版权所属
-        self.about_author_label = BodyLabel(f"Copyright © {YEAR} {APPLY_NAME}")
+        self.about_author_label = BodyLabel(
+            f"Copyright © {INITIAL_AUTHORING_YEAR}-{CURRENT_YEAR} {COPYRIGHT_HOLDER}"
+        )
 
         # 创建贡献人员按钮
         self.contributor_button = PushButton(

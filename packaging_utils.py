@@ -10,12 +10,12 @@ from typing import Iterable, List
 
 PROJECT_ROOT = Path(__file__).parent
 APP_DIR = PROJECT_ROOT / "app"
-DATA_DIR = APP_DIR / "data"
+DATA_DIR = PROJECT_ROOT / "data"
 LANGUAGE_MODULES_DIR = APP_DIR / "Language" / "modules"
 VIEW_DIR = APP_DIR / "view"
 LICENSE_FILE = PROJECT_ROOT / "LICENSE"
 VERSION_FILE = PROJECT_ROOT / "version_info.txt"
-ICON_FILE = PROJECT_ROOT / "data" / "secrandom-icon-paper.ico"
+ICON_FILE = PROJECT_ROOT / "data" / "assets" / "icon" / "secrandom-icon-paper.ico"
 
 
 @dataclass(frozen=True)

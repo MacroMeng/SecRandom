@@ -93,7 +93,9 @@ class DebBuilder:
             os.chmod(bin_path, 0o755)
 
         # 复制图标文件
-        icon_src = self.project_root / "data" / "secrandom-icon-paper.png"
+        icon_src = (
+            self.project_root / "data" / "assets" / "icon" / "secrandom-icon-paper.png"
+        )
         icon_dst = (
             self.deb_root
             / "usr"

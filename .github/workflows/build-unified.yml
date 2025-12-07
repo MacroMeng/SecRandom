@@ -194,9 +194,9 @@ jobs:
           echo "dist目录内容："
           ls -la dist/
 
-          # deb包构建已经在build_pyinstaller.py或build_nuitka.py中完成
-          # 检查deb包是否生成
-          if [ ! -f "zip/*.deb" ]; then
+          # deb包构建已经在build_pyinstaller.py中完成
+          # 检查deb包是否生成（使用正确的通配符检查方式）
+          if ! ls zip/*.deb 2>/dev/null | grep -q .; then
             echo "错误：deb包未生成，构建可能失败了"
             echo "zip目录内容："
             ls -la zip/

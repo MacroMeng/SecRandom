@@ -52,6 +52,13 @@ class contributor_page(QWidget):
         # 初始化卡片列表
         self.cards = []
 
+        # 布局更新状态跟踪
+        self._last_layout_width = 0
+        self._last_card_count = 0
+        self._layout_update_in_progress = False
+        self._resize_timer = None
+        self._is_resizing = False
+
     def _init_data(self):
         """初始化贡献者数据"""
         # 贡献者数据
@@ -164,61 +171,149 @@ class contributor_page(QWidget):
 
     def create_contributor_cards(self):
         """创建贡献者卡片"""
-        if not hasattr(self, "grid_layout") or self.grid_layout is None:
+        if not self.grid_layout:
             return
+
+        # 初始化卡片缓存和已添加卡片集合
+        if not hasattr(self, "_card_cache"):
+            self._card_cache = {}
+        if not hasattr(self, "_cards_set"):
+            self._cards_set = set()
+
+        # 清空现有卡片列表，但保留在缓存中
+        self.cards = []
+        self._clear_grid_layout()
 
         # 添加贡献者卡片
         for contributor in self.contributors:
-            card = self.addContributorCard(contributor)
-            if card is not None:  # 只添加有效的卡片
+            key = contributor["name"]
+            if key in self._cards_set:
+                # 已存在，跳过
+                continue
+
+            card = self._card_cache.get(key)
+            if card is None:
+                card = self.addContributorCard(contributor)
+                if card is not None:
+                    self._card_cache[key] = card
+
+            if card is not None:
+                # 确保卡片不在另一个父控件下
+                try:
+                    if card.parent() is not None and card.parent() is not self:
+                        card.setParent(None)
+                except Exception as e:
+                    logger.exception("Error resetting card parent (ignored): {}", e)
+
                 self.cards.append(card)
+                self._cards_set.add(key)
 
         # 延迟更新布局
         QTimer.singleShot(50, self.update_layout)
 
-    def update_layout(self):
-        """更新布局 - 根据窗口大小动态调整卡片排列"""
-        # 清空网格布局
-        self._clear_grid_layout()
-
-        def calculate_columns(width):
-            """根据窗口宽度和卡片尺寸动态计算列数"""
+    def _calculate_columns(self, width: int) -> int:
+        """根据窗口宽度和卡片尺寸动态计算列数"""
+        try:
             if width <= 0:
                 return 1
 
             # 计算可用宽度（减去左右边距）
             available_width = width - 40  # 左右各20px边距
 
-            # 计算单个卡片实际占用的宽度（包括间距）
+            # 所有卡片使用相同的尺寸
             card_actual_width = CONTRIBUTOR_CARD_MIN_WIDTH + CONTRIBUTOR_CARD_SPACING
+            max_cols = max(1, available_width // card_actual_width)
 
-            # 计算最大可能列数（不超过MAX_COLUMNS）
-            cols = min(available_width // card_actual_width, CONTRIBUTOR_MAX_COLUMNS)
+            # 至少显示1列，且不超过最大列数限制
+            return max(1, min(int(max_cols), CONTRIBUTOR_MAX_COLUMNS))
+        except Exception as e:
+            from loguru import logger
+            logger.exception("Error calculating columns (fallback to 1): {}", e)
+            return 1
 
-            # 至少显示1列
-            return max(cols, 1)
+    def update_layout(self):
+        """更新布局"""
+        if not self.grid_layout or not self.cards:
+            return
 
-        # 获取窗口实际可用宽度
-        window_width = max(self.width(), self.sizeHint().width())
+        # 检查是否需要更新布局
+        current_width = self.width()
+        current_card_count = len(self.cards)
 
-        # 根据窗口宽度计算列数
-        cols = calculate_columns(window_width)
+        # 如果布局正在更新中，或者宽度和卡片数量都没有变化，则跳过更新
+        if hasattr(self, "_layout_update_in_progress") and self._layout_update_in_progress or (
+            hasattr(self, "_last_layout_width") and current_width == self._last_layout_width
+            and hasattr(self, "_last_card_count") and current_card_count == self._last_card_count
+        ):
+            return
 
-        # 设置网格布局的列伸缩因子，使卡片均匀分布
-        for col in range(cols):
-            self.grid_layout.setColumnStretch(col, 1)
+        # 设置布局更新标志
+        if not hasattr(self, "_layout_update_in_progress"):
+            self._layout_update_in_progress = False
+        self._layout_update_in_progress = True
+        if not hasattr(self, "_last_layout_width"):
+            self._last_layout_width = 0
+        if not hasattr(self, "_last_card_count"):
+            self._last_card_count = 0
+        self._last_layout_width = current_width
+        self._last_card_count = current_card_count
 
-        # 添加卡片到网格
-        for i, card in enumerate(self.cards):
-            row = i // cols
-            col = i % cols
-            # 设置卡片的最小宽度和最大宽度
-            card.setMinimumWidth(CONTRIBUTOR_CARD_MIN_WIDTH)
-            card.setMaximumWidth(
-                CONTRIBUTOR_CARD_MIN_WIDTH * 1.5
-            )  # 设置最大宽度，防止卡片过宽
-            self.grid_layout.addWidget(card, row, col, Qt.AlignmentFlag.AlignCenter)
-            card.show()
+        try:
+            # 在进行大量布局变更时禁用更新，减少中间重绘导致的卡顿
+            try:
+                top_win = self.window()
+                if top_win is not None:
+                    top_win.setUpdatesEnabled(False)
+            except Exception:
+                top_win = None
+            self.setUpdatesEnabled(False)
+
+            # 清空现有布局
+            self._clear_grid_layout()
+
+            # 计算列数
+            window_width = max(self.width(), self.sizeHint().width())
+            columns = self._calculate_columns(window_width)
+
+            # 添加卡片到网格布局
+            for i, card in enumerate(self.cards):
+                row = i // columns
+                col = i % columns
+                card.setMinimumWidth(CONTRIBUTOR_CARD_MIN_WIDTH)
+                card.setMaximumWidth(CONTRIBUTOR_CARD_MIN_WIDTH * 1.5)
+                self.grid_layout.addWidget(card, row, col)
+                # 仅在控件当前不可见时显示，避免重复触发绘制
+                if not card.isVisible():
+                    card.show()
+
+            # 设置列的伸缩因子，使卡片均匀分布
+            for col in range(columns):
+                self.grid_layout.setColumnStretch(col, 1)
+        finally:
+            # 清除布局更新标志
+            self._layout_update_in_progress = False
+            # 恢复更新
+            try:
+                self.setUpdatesEnabled(True)
+            except Exception as e:
+                from loguru import logger
+                logger.exception("Error processing student in StudentLoader: {}", e)
+            try:
+                if top_win is not None:
+                    top_win.setUpdatesEnabled(True)
+            except Exception as e:
+                from loguru import logger
+                logger.exception(
+                    "Error re-enabling updates on top window (ignored): {}", e
+                )
+            try:
+                # 触发一次完整刷新
+                self.update()
+            except Exception as e:
+                from loguru import logger
+                logger.exception(
+                    "Error calling update() after layout update (ignored): {}", e
+                )
 
     def _clear_grid_layout(self):
         """清空网格布局"""
@@ -226,12 +321,22 @@ class contributor_page(QWidget):
         for col in range(self.grid_layout.columnCount()):
             self.grid_layout.setColumnStretch(col, 0)
 
+        # 移除布局中的所有项，但不要销毁控件，保留在内存中以便复用
+        # 这样可以避免频繁的 setParent()/delete 操作导致的卡顿
         while self.grid_layout.count():
             item = self.grid_layout.takeAt(0)
             widget = item.widget()
             if widget:
+                try:
+                    self.grid_layout.removeWidget(widget)
+                except Exception as e:
+                    logger.exception("Error removing widget from grid during clear (ignored): {}", e)
                 widget.hide()
-                widget.setParent(None)
+        # 清空已记录的已添加卡片集合
+        try:
+            self._cards_set.clear()
+        except Exception as e:
+            logger.exception("Error clearing cards set (ignored): {}", e)
 
     def addContributorCard(self, contributor):
         """添加单个贡献者卡片"""
@@ -278,8 +383,8 @@ class contributor_page(QWidget):
 
     def resizeEvent(self, event):
         """窗口大小变化事件"""
-        # 使用QTimer延迟布局更新，避免递归调用
-        if hasattr(self, "_resize_timer") and self._resize_timer is not None:
+        # 使用QTimer延迟布局更新，避免在窗口调整大小时频繁触发布局更新
+        if self._resize_timer is not None:
             self._resize_timer.stop()
         self._resize_timer = QTimer()
         self._resize_timer.setSingleShot(True)
@@ -290,9 +395,8 @@ class contributor_page(QWidget):
     def _delayed_update_layout(self):
         """延迟更新布局"""
         try:
-            if hasattr(self, "grid_layout") and self.grid_layout is not None:
-                if self.isVisible():
-                    self.update_layout()
+            if self.grid_layout is not None and self.isVisible():
+                self.update_layout()
         except RuntimeError as e:
             logger.error(f"延迟布局更新错误: {e}")
 

@@ -363,17 +363,24 @@ def create_remaining_list_window(
             def setup_page():
                 nonlocal page
                 page_template = window.get_page("remaining_list")
-                if page_template and hasattr(page_template, "contentWidget"):
-                    page = page_template.contentWidget
-                    if hasattr(page, "update_remaining_list"):
-                        page.update_remaining_list(
-                            class_name,
-                            group_filter,
-                            gender_filter,
-                            half_repeat,
-                            group_index,
-                            gender_index,
-                        )
+                content_widget = (
+                    getattr(page_template, "contentWidget", None)
+                    if page_template is not None
+                    else None
+                )
+                if content_widget is None:
+                    QTimer.singleShot(50, setup_page)
+                    return
+                page = content_widget
+                if hasattr(page, "update_remaining_list"):
+                    page.update_remaining_list(
+                        class_name,
+                        group_filter,
+                        gender_filter,
+                        half_repeat,
+                        group_index,
+                        gender_index,
+                    )
 
             # 使用延迟调用确保内容控件已创建
             QTimer.singleShot(APP_INIT_DELAY, setup_page)
@@ -406,23 +413,30 @@ def create_remaining_list_window(
     def setup_page():
         nonlocal page
         page_template = window.get_page("remaining_list")
-        if page_template and hasattr(page_template, "contentWidget"):
-            page = page_template.contentWidget
-            if hasattr(page, "update_remaining_list"):
-                page.update_remaining_list(
-                    class_name,
-                    group_filter,
-                    gender_filter,
-                    half_repeat,
-                    group_index,
-                    gender_index,
-                )
-            try:
-                window.windowClosed.connect(
-                    lambda: getattr(page, "stop_loader", lambda: None)()
-                )
-            except Exception:
-                pass
+        content_widget = (
+            getattr(page_template, "contentWidget", None)
+            if page_template is not None
+            else None
+        )
+        if content_widget is None:
+            QTimer.singleShot(50, setup_page)
+            return
+        page = content_widget
+        if hasattr(page, "update_remaining_list"):
+            page.update_remaining_list(
+                class_name,
+                group_filter,
+                gender_filter,
+                half_repeat,
+                group_index,
+                gender_index,
+            )
+        try:
+            window.windowClosed.connect(
+                lambda: getattr(page, "stop_loader", lambda: None)()
+            )
+        except Exception:
+            pass
 
     # 使用延迟调用确保内容控件已创建
     QTimer.singleShot(APP_INIT_DELAY, setup_page)

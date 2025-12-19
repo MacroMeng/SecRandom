@@ -337,6 +337,9 @@ class SetClassNameWindow(QWidget):
             # 标记为已保存
             self.saved = True
 
+            # 关闭窗口
+            self.__close_window()
+
         except Exception as e:
             # 显示错误消息
             config = NotificationConfig(
@@ -347,8 +350,8 @@ class SetClassNameWindow(QWidget):
             show_notification(NotificationType.ERROR, config, parent=self)
             logger.error(f"保存班级名称失败: {e}")
 
-    def __cancel(self):
-        """取消操作"""
+    def __close_window(self):
+        """关闭窗口"""
         # 获取父窗口并关闭
         parent = self.parent()
         while parent:
@@ -357,6 +360,9 @@ class SetClassNameWindow(QWidget):
                 parent.close()
                 break
             parent = parent.parent()
+
+    def __cancel(self) -> None:
+        self.__close_window()
 
     def closeEvent(self, event):
         """窗口关闭事件处理"""

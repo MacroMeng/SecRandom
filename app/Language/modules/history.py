@@ -46,11 +46,6 @@ history_management = {
             "name": "选择奖池",
             "description": "选择要查看历史记录的奖池",
         },
-        "select_weight": {
-            "name": "显示权重",
-            "description": "是否在表格中显示权重信息",
-            "switchbutton_name": {"enable": "", "disable": ""},
-        },
         "clear_lottery_history": {
             "name": "清除抽奖历史记录",
             "description": "清除选定奖池的抽奖历史记录",

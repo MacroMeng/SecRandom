@@ -515,15 +515,8 @@ class roll_call(QWidget):
             )
             self.start_button.clicked.connect(lambda: self.start_draw())
         elif animation == 2:
-            if hasattr(self, "final_selected_students_dict") and hasattr(
-                self, "final_class_name"
-            ):
-                save_roll_call_history(
-                    class_name=self.final_class_name,
-                    selected_students=self.final_selected_students_dict,
-                    group_filter=self.final_group_filter,
-                    gender_filter=self.final_gender_filter,
-                )
+            # 调用stop_animation()方法更新剩余人数
+            self.stop_animation()
             self.start_button.clicked.connect(lambda: self.start_draw())
 
     def stop_animation(self):

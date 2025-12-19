@@ -116,6 +116,11 @@ class FloatingNotificationWindow(CardWidget):
         self.countdown_timer = QTimer()
         self.countdown_timer.timeout.connect(self.update_countdown_display)
 
+        # 周期性置顶定时器
+        self._periodic_topmost_timer = QTimer()
+        self._periodic_topmost_timer.timeout.connect(self._periodic_topmost)
+        self._periodic_topmost_interval = 100
+
         # 动画相关
         self.geometry_animation = None
         self.opacity_animation = None
@@ -123,6 +128,9 @@ class FloatingNotificationWindow(CardWidget):
 
         # 关闭动画
         self.hide_animation = None
+
+        # 启动周期性置顶
+        self._start_periodic_topmost()
 
     def mousePressEvent(self, event: QMouseEvent):
         """鼠标按下事件处理，用于窗口拖拽"""
@@ -674,6 +682,15 @@ class FloatingNotificationWindow(CardWidget):
 
         # 更新倒计时显示
         self.update_countdown_display()
+
+    def _start_periodic_topmost(self):
+        """启动周期性置顶定时器"""
+        self._periodic_topmost_timer.start(self._periodic_topmost_interval)
+
+    def _periodic_topmost(self):
+        """周期性将窗口置顶"""
+        if self.isVisible():
+            self.raise_()
 
     def start_hide_animation(self):
         """开始隐藏动画"""

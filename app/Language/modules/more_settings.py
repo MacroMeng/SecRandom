@@ -3,33 +3,20 @@ more_settings = {
     "ZH_CN": {
         "title": {"name": "更多设置", "description": "更多功能设置"},
     },
-        "EN_US": {
-        "title": {
-            "name": "More settings",
-            "description": "More settings"
-        }
-    },
+    "EN_US": {"title": {"name": "More settings", "description": "More settings"}},
 }
 
 settings = {
     "ZH_CN": {
         "title": {"name": "设置", "description": "设置窗口"},
     },
-        "EN_US": {
-        "title": {
-            "name": "Settings",
-            "description": "Settings window"
-        }
-    },
+    "EN_US": {"title": {"name": "Settings", "description": "Settings window"}},
 }
 
 # 调试设置语言配置
-debug = {"ZH_CN": {"title": {"name": "调试设置", "description": "调试功能设置"}},        "EN_US": {
-        "title": {
-            "name": "Debug settings",
-            "description": "Debug settings"
-        }
-    },
+debug = {
+    "ZH_CN": {"title": {"name": "调试设置", "description": "调试功能设置"}},
+    "EN_US": {"title": {"name": "Debug settings", "description": "Debug settings"}},
 }
 
 # 关于语言配置
@@ -57,18 +44,12 @@ about = {
         "copyright": {"name": "版权", "description": "SecRandom遵循GPL-3.0协议"},
         "version": {"name": "版本", "description": "显示当前软件版本号"},
     },
-            "EN_US": {
-        "title": {
-            "name": "About",
-            "description": "APP about page"
-        },
-        "github": {
-            "name": "GitHub",
-            "description": "Visit project repository"
-        },
+    "EN_US": {
+        "title": {"name": "About", "description": "APP about page"},
+        "github": {"name": "GitHub", "description": "Visit project repository"},
         "bilibili": {
             "name": "Bilibili",
-            "description": "Visit 黎泽懿_Aionflux's Bilibili account"
+            "description": "Visit 黎泽懿_Aionflux's Bilibili account",
         },
         "contributor": {
             "name": "Contributors",
@@ -79,36 +60,24 @@ about = {
             "contributor_role_4": "Creativity & Documentation",
             "contributor_role_5": "Creativity & Maintenance",
             "contributor_role_6": "Test & Documentation & Install Package Making",
-            "contributor_role_7": "Responsive frontend page Design and Maintenance & Documentation"
+            "contributor_role_7": "Responsive frontend page Design and Maintenance & Documentation",
         },
-        "donation": {
-            "name": "Donate",
-            "description": "Buy me a coffee"
-        },
+        "donation": {"name": "Donate", "description": "Buy me a coffee"},
         "check_update": {
             "name": "Check for updates",
-            "description": "Check for updates"
+            "description": "Check for updates",
         },
         "website": {
             "name": "SecRandom Website",
-            "description": "Visit SecRandom's official website"
+            "description": "Visit SecRandom's official website",
         },
         "channel": {
             "name": "Update channel",
             "description": "Select SecRandom software update channel",
-            "combo_items": {
-                "0": "Official version",
-                "1": "Beta version"
-            }
+            "combo_items": {"0": "Official version", "1": "Beta version"},
         },
-        "copyright": {
-            "name": "Copyright",
-            "description": "SecRandom follows GPL-3.0"
-        },
-        "version": {
-            "name": "Version",
-            "description": "Show current version"
-        }
+        "copyright": {"name": "Copyright", "description": "SecRandom follows GPL-3.0"},
+        "version": {"name": "Version", "description": "Show current version"},
     },
 }
 

@@ -363,11 +363,13 @@ class quick_draw_basic_animation_settings(GroupHeaderCardWidget):
             get_content_combo_name_async("quick_draw_settings", "animation")
         )
         self.animation_combo.setCurrentIndex(
-            readme_settings_async("quick_draw_settings", "animation")
+            readme_settings_async("quick_draw_settings", "animation") - 1
         )
         self.animation_combo.currentIndexChanged.connect(
             lambda: update_settings(
-                "quick_draw_settings", "animation", self.animation_combo.currentIndex()
+                "quick_draw_settings",
+                "animation",
+                self.animation_combo.currentIndex() + 1,
             )
         )
 

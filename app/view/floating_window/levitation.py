@@ -64,6 +64,9 @@ class LevitationWindow(QWidget):
         # ==================== UI相关属性 ====================
         self._init_ui_properties()
 
+        # ==================== 周期性置顶属性 ====================
+        self._init_periodic_topmost_properties()
+
         # ==================== 初始化配置 ====================
         self._init_settings()
 
@@ -78,6 +81,9 @@ class LevitationWindow(QWidget):
 
         # ==================== 主题应用 ====================
         self._apply_theme_style()
+
+        # ==================== 启动周期性置顶 ====================
+        self._start_periodic_topmost()
 
     # ==================== 初始化方法 ====================
 
@@ -126,6 +132,21 @@ class LevitationWindow(QWidget):
         self._margins = self.DEFAULT_MARGINS
         self._placement = self.DEFAULT_PLACEMENT
         self._display_style = self.DEFAULT_DISPLAY_STYLE
+
+    def _init_periodic_topmost_properties(self):
+        """初始化周期性置顶相关属性"""
+        self._periodic_topmost_timer = QTimer(self)
+        self._periodic_topmost_timer.timeout.connect(self._periodic_topmost)
+        self._periodic_topmost_interval = 100
+
+    def _start_periodic_topmost(self):
+        """启动周期性置顶定时器"""
+        self._periodic_topmost_timer.start(self._periodic_topmost_interval)
+
+    def _periodic_topmost(self):
+        """周期性将窗口置顶"""
+        if self.isVisible():
+            self.raise_()
 
     def _connect_signals(self):
         """连接信号"""

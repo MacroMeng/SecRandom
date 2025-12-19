@@ -590,3 +590,194 @@ def _export_to_txt(data: Dict[str, Any], file_path: str) -> Tuple[bool, str]:
         error_msg = f"导出TXT文件时出错: {str(e)}"
         logger.error(error_msg)
         return False, error_msg
+
+
+# ==================================================
+# 奖品数据导出函数
+# ==================================================
+def export_prize_data(
+    pool_name: str, file_path: str, export_format: str
+) -> Tuple[bool, str]:
+    """导出奖品数据到指定文件
+
+    从 data/list/lottery_list 文件夹中读取指定奖池的名单文件，
+    并根据指定格式导出到文件
+
+    Args:
+        pool_name: 奖池名称
+        file_path: 导出文件路径
+        export_format: 导出格式 ('excel', 'csv', 'txt')
+
+    Returns:
+        Tuple[bool, str]: (是否成功, 成功/错误消息)
+    """
+    try:
+        # 获取奖池名单文件路径
+        lottery_list_dir = get_data_path("list/lottery_list")
+        pool_file_path = lottery_list_dir / f"{pool_name}.json"
+
+        # 如果文件不存在，返回错误
+        if not pool_file_path.exists():
+            error_msg = f"奖池文件 '{pool_name}.json' 不存在"
+            logger.error(error_msg)
+            return False, error_msg
+
+        # 读取JSON文件
+        with open(pool_file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        if not data:
+            error_msg = "当前奖池没有奖品数据"
+            logger.warning(error_msg)
+            return False, error_msg
+
+        # 根据导出格式处理数据
+        if export_format.lower() == "excel":
+            return _export_prize_to_excel(data, file_path)
+        elif export_format.lower() == "csv":
+            return _export_prize_to_csv(data, file_path)
+        elif export_format.lower() == "txt":
+            return _export_prize_to_txt(data, file_path)
+        else:
+            error_msg = f"不支持的导出格式: {export_format}"
+            logger.error(error_msg)
+            return False, error_msg
+
+    except FileNotFoundError:
+        error_msg = f"奖池文件 '{pool_name}.json' 不存在"
+        logger.error(error_msg)
+        return False, error_msg
+    except json.JSONDecodeError:
+        error_msg = f"奖池文件 '{pool_name}.json' 格式错误"
+        logger.error(error_msg)
+        return False, error_msg
+    except Exception as e:
+        error_msg = f"导出奖品名单时出错: {str(e)}"
+        logger.error(error_msg)
+        return False, error_msg
+
+
+def _export_prize_to_excel(data: Dict[str, Any], file_path: str) -> Tuple[bool, str]:
+    """导出奖品数据为Excel文件
+
+    Args:
+        data: 奖品数据字典
+        file_path: 导出文件路径
+
+    Returns:
+        Tuple[bool, str]: (是否成功, 成功/错误消息)
+    """
+    try:
+        # 转换为DataFrame
+        export_data = []
+        for prize_name, prize_info in data.items():
+            export_data.append(
+                {
+                    "ID": prize_info["id"],
+                    "奖品名称": prize_name,
+                    "权重": prize_info["weight"],
+                }
+            )
+
+        # 延迟导入 pandas，避免程序启动时加载大型 C 扩展
+        try:
+            import pandas as pd
+        except Exception as e:
+            logger.error(f"导出Excel需要 pandas 库，但导入失败: {e}")
+            return False, "导出失败: pandas 未安装或导入错误"
+
+        df = pd.DataFrame(export_data)
+
+        # 确保文件扩展名正确
+        if not file_path.endswith(".xlsx"):
+            file_path += ".xlsx"
+
+        # 保存为xlsx文件
+        df.to_excel(file_path, index=False, engine="openpyxl")
+
+        success_msg = f"奖品名单已导出到: {file_path}"
+        logger.info(success_msg)
+        return True, success_msg
+
+    except Exception as e:
+        error_msg = f"导出Excel文件时出错: {str(e)}"
+        logger.error(error_msg)
+        return False, error_msg
+
+
+def _export_prize_to_csv(data: Dict[str, Any], file_path: str) -> Tuple[bool, str]:
+    """导出奖品数据为CSV文件
+
+    Args:
+        data: 奖品数据字典
+        file_path: 导出文件路径
+
+    Returns:
+        Tuple[bool, str]: (是否成功, 成功/错误消息)
+    """
+    try:
+        # 转换为DataFrame
+        export_data = []
+        for prize_name, prize_info in data.items():
+            export_data.append(
+                {
+                    "ID": prize_info["id"],
+                    "奖品名称": prize_name,
+                    "权重": prize_info["weight"],
+                }
+            )
+
+        # 延迟导入 pandas，避免程序启动时加载大型 C 扩展
+        try:
+            import pandas as pd
+        except Exception as e:
+            logger.error(f"导出CSV需要 pandas 库，但导入失败: {e}")
+            return False, "导出失败: pandas 未安装或导入错误"
+
+        df = pd.DataFrame(export_data)
+
+        # 确保文件扩展名正确
+        if not file_path.endswith(".csv"):
+            file_path += ".csv"
+
+        # 保存为CSV文件
+        df.to_csv(file_path, index=False, encoding="utf-8-sig")
+
+        success_msg = f"奖品名单已导出到: {file_path}"
+        logger.info(success_msg)
+        return True, success_msg
+
+    except Exception as e:
+        error_msg = f"导出CSV文件时出错: {str(e)}"
+        logger.error(error_msg)
+        return False, error_msg
+
+
+def _export_prize_to_txt(data: Dict[str, Any], file_path: str) -> Tuple[bool, str]:
+    """导出奖品数据为TXT文件
+
+    Args:
+        data: 奖品数据字典
+        file_path: 导出文件路径
+
+    Returns:
+        Tuple[bool, str]: (是否成功, 成功/错误消息)
+    """
+    try:
+        # 确保文件扩展名正确
+        if not file_path.endswith(".txt"):
+            file_path += ".txt"
+
+        # 提取奖品名称并保存为TXT文件，每行一个奖品名称
+        with open(file_path, "w", encoding="utf-8") as f:
+            for name in data.keys():
+                f.write(f"{name}\n")
+
+        success_msg = f"奖品名单已导出到: {file_path}"
+        logger.info(success_msg)
+        return True, success_msg
+
+    except Exception as e:
+        error_msg = f"导出TXT文件时出错: {str(e)}"
+        logger.error(error_msg)
+        return False, error_msg

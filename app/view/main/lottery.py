@@ -103,9 +103,8 @@ class Lottery(QWidget):
         self.result_widget = QWidget()
         self.result_layout = QVBoxLayout(self.result_widget)
         self.result_grid = QGridLayout()
-        self.result_layout.addStretch()
+        # 移除拉伸，让内容可以自由扩展，确保滚动正常
         self.result_layout.addLayout(self.result_grid)
-        self.result_layout.addStretch()
         lottery_container.addWidget(self.result_widget)
 
         self.reset_button = PushButton(

@@ -26,6 +26,130 @@ system_random = SystemRandom()
 
 
 # ==================================================
+# 触屏结果显示组件
+# ==================================================
+class TouchResultWidget(QWidget):
+    """支持触屏操作的结果显示组件"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        # 触屏相关变量
+        self.is_pressing = False
+        self.press_pos = QPoint()
+        self.long_press_timer = QTimer(self)
+        self.long_press_timer.setSingleShot(True)
+        self.long_press_delay = 500  # 长按延迟时间(毫秒)
+        self.long_press_timer.timeout.connect(self.handle_long_press)
+        self.context_menu_requested = False
+
+        # 滑动相关变量
+        self.is_sliding = False
+        self.last_pos = QPoint()
+
+    def mousePressEvent(self, event):
+        """处理鼠标按下事件"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.is_pressing = True
+            self.press_pos = event.pos()
+            self.last_pos = event.pos()
+            self.long_press_timer.start(self.long_press_delay)
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        """处理鼠标移动事件"""
+        if self.is_pressing:
+            # 计算移动距离
+            delta = event.pos() - self.press_pos
+            if abs(delta.x()) > 5 or abs(delta.y()) > 5:
+                # 移动距离超过阈值，取消长按
+                self.long_press_timer.stop()
+                self.is_sliding = True
+
+                # 实现滑动效果
+                parent = self.parent()
+                while parent:
+                    if hasattr(parent, "verticalScrollBar") or hasattr(
+                        parent, "horizontalScrollBar"
+                    ):
+                        # 找到滚动区域，实现滑动
+                        if hasattr(parent, "verticalScrollBar"):
+                            vbar = parent.verticalScrollBar()
+                            vbar.setValue(vbar.value() - delta.y())
+                        if hasattr(parent, "horizontalScrollBar"):
+                            hbar = parent.horizontalScrollBar()
+                            hbar.setValue(hbar.value() - delta.x())
+                        self.last_pos = event.pos()
+                        break
+                    parent = parent.parent()
+
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """处理鼠标释放事件"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.is_pressing = False
+            self.is_sliding = False
+            self.long_press_timer.stop()
+        super().mouseReleaseEvent(event)
+
+    def handle_long_press(self):
+        """处理长按事件"""
+        if self.is_pressing and not self.is_sliding:
+            # 模拟右键点击，显示上下文菜单
+            self.context_menu_requested = True
+            # 创建并显示上下文菜单
+            menu = QMenu(self)
+            # 可以添加自定义菜单项
+            menu.exec(self.mapToGlobal(self.press_pos))
+            self.context_menu_requested = False
+
+    def touchEvent(self, event):
+        """处理触屏事件"""
+        touch_points = event.touchPoints()
+        if not touch_points:
+            return
+
+        touch_point = touch_points[0]
+        touch_pos = touch_point.pos().toPoint()
+
+        if touch_point.state() == Qt.TouchPointState.Pressed:
+            # 触屏按下
+            self.mousePressEvent(
+                QMouseEvent(
+                    QEvent.Type.MouseButtonPress,
+                    touch_pos,
+                    Qt.MouseButton.LeftButton,
+                    Qt.MouseButton.LeftButton,
+                    Qt.KeyboardModifier.NoModifier,
+                )
+            )
+        elif touch_point.state() == Qt.TouchPointState.Moved:
+            # 触屏移动
+            self.mouseMoveEvent(
+                QMouseEvent(
+                    QEvent.Type.MouseMove,
+                    touch_pos,
+                    Qt.MouseButton.LeftButton,
+                    Qt.MouseButton.LeftButton,
+                    Qt.KeyboardModifier.NoModifier,
+                )
+            )
+        elif touch_point.state() == Qt.TouchPointState.Released:
+            # 触屏释放
+            self.mouseReleaseEvent(
+                QMouseEvent(
+                    QEvent.Type.MouseButtonRelease,
+                    touch_pos,
+                    Qt.MouseButton.LeftButton,
+                    Qt.MouseButton.NoButton,
+                    Qt.KeyboardModifier.NoModifier,
+                )
+            )
+
+
+# ==================================================
 # 结果显示工具类
 # ==================================================
 class ResultDisplayUtils:
@@ -299,6 +423,13 @@ class ResultDisplayUtils:
                 show_random=show_random,
             )
 
+            # 使用支持触屏的容器包装所有内容，确保整个区域都能响应触屏操作
+            touch_container = TouchResultWidget()
+            inner_layout = QVBoxLayout() if draw_count == 1 else QHBoxLayout()
+            inner_layout.setContentsMargins(0, 0, 0, 0)
+            inner_layout.setSpacing(0)
+            touch_container.setLayout(inner_layout)
+
             # 在小组模式下，只在没有成员显示时才显示头像
             if show_student_image:
                 label = ResultDisplayUtils._create_student_label_with_avatar(
@@ -310,7 +441,10 @@ class ResultDisplayUtils:
             ResultDisplayUtils._apply_label_style(
                 label, font_size, animation_color, settings_group
             )
-            student_labels.append(label)
+
+            # 将标签添加到触屏容器中
+            inner_layout.addWidget(label)
+            student_labels.append(touch_container)
 
         return student_labels
 
@@ -394,12 +528,7 @@ class ResultDisplayUtils:
             item = result_grid.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-        container = QWidget()
-        grid_layout = QGridLayout()
-        grid_layout.setSpacing(GRID_LAYOUT_SPACING)  # 设置统一的间距
-        grid_layout.setHorizontalSpacing(GRID_HORIZONTAL_SPACING)  # 设置水平间距
-        grid_layout.setVerticalSpacing(GRID_VERTICAL_SPACING)  # 设置垂直间距
-        container.setLayout(grid_layout)
+
         if student_labels:
             parent_widget = result_grid.parentWidget()
             if parent_widget:
@@ -417,11 +546,17 @@ class ResultDisplayUtils:
                 max_columns = len(student_labels)
         else:
             max_columns = 1
+
+        # 直接在结果网格布局中添加标签，不使用额外的 TouchResultWidget 容器
+        # 这样滚动区域可以作用于整个布局
         for i, label in enumerate(student_labels):
             row = i // max_columns
             col = i % max_columns
-            grid_layout.addWidget(label, row, col)
-        result_grid.addWidget(container)
+            result_grid.addWidget(label, row, col)
+
+        # 确保父级滚动区域能够正确计算内容大小
+        if result_grid.parentWidget():
+            result_grid.parentWidget().updateGeometry()
 
     @staticmethod
     def clear_grid(result_grid):

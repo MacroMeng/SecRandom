@@ -5,23 +5,33 @@ import random
 import colorsys
 import weakref
 
-from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QMenu, QApplication
-)
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QMenu, QApplication
 from PySide6.QtGui import QMouseEvent, QPalette
-from PySide6.QtCore import (
-    Qt, QPoint, QTimer, QEvent
-)
-from qfluentwidgets import (
-    BodyLabel, AvatarWidget, qconfig, Theme
-)
+from PySide6.QtCore import Qt, QPoint, QTimer, QEvent
+from qfluentwidgets import BodyLabel, AvatarWidget, qconfig, Theme
 
 from app.tools.variable import (
-    STUDENT_ID_FORMAT, NAME_SPACING, SUPPORTED_IMAGE_EXTENSIONS, AVATAR_LABEL_SPACING,
-    DEFAULT_MIN_SATURATION, DEFAULT_MAX_SATURATION, DEFAULT_MIN_VALUE, DEFAULT_MAX_VALUE,
-    LIGHT_VALUE_MULTIPLIER, LIGHT_MAX_VALUE_MULTIPLIER, DARK_VALUE_MULTIPLIER, DARK_MAX_VALUE_MULTIPLIER,
-    LIGHT_THEME_MAX_VALUE, LIGHT_THEME_ADJUSTED_MAX_VALUE, DARK_THEME_MIN_VALUE, DARK_THEME_MAX_VALUE,
-    LIGHTNESS_THRESHOLD, RGB_COLOR_FORMAT, GRID_ITEM_MARGIN, GRID_ITEM_SPACING, DEFAULT_AVAILABLE_WIDTH
+    STUDENT_ID_FORMAT,
+    NAME_SPACING,
+    SUPPORTED_IMAGE_EXTENSIONS,
+    AVATAR_LABEL_SPACING,
+    DEFAULT_MIN_SATURATION,
+    DEFAULT_MAX_SATURATION,
+    DEFAULT_MIN_VALUE,
+    DEFAULT_MAX_VALUE,
+    LIGHT_VALUE_MULTIPLIER,
+    LIGHT_MAX_VALUE_MULTIPLIER,
+    DARK_VALUE_MULTIPLIER,
+    DARK_MAX_VALUE_MULTIPLIER,
+    LIGHT_THEME_MAX_VALUE,
+    LIGHT_THEME_ADJUSTED_MAX_VALUE,
+    DARK_THEME_MIN_VALUE,
+    DARK_THEME_MAX_VALUE,
+    LIGHTNESS_THRESHOLD,
+    RGB_COLOR_FORMAT,
+    GRID_ITEM_MARGIN,
+    GRID_ITEM_SPACING,
+    DEFAULT_AVAILABLE_WIDTH,
 )
 from app.tools.path_utils import file_exists, get_data_path
 from app.tools.personalised import is_dark_theme
@@ -385,6 +395,7 @@ class ResultDisplayUtils:
             else:
                 try:
                     from qfluentwidgets import qconfig
+
                     default_color = "#ffffff" if is_dark_theme(qconfig) else "#000000"
                     style_sheet += f"color: {default_color} !important;"
                 except Exception:

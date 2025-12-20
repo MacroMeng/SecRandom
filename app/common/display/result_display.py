@@ -5,19 +5,28 @@ import random
 import colorsys
 import weakref
 
-from PySide6.QtWidgets import *
-from PySide6.QtGui import *
-from PySide6.QtCore import *
-from PySide6.QtNetwork import *
-from qfluentwidgets import *
+from PySide6.QtWidgets import (
+    QWidget, QHBoxLayout, QVBoxLayout, QMenu, QApplication
+)
+from PySide6.QtGui import QMouseEvent, QPalette
+from PySide6.QtCore import (
+    Qt, QPoint, QTimer, QEvent
+)
+from qfluentwidgets import (
+    BodyLabel, AvatarWidget, qconfig, Theme
+)
 
-from app.tools.variable import *
-from app.tools.path_utils import *
-from app.tools.personalised import *
-from app.tools.settings_default import *
-from app.tools.settings_access import *
-from app.Language.obtain_language import *
-from app.common.data.list import *
+from app.tools.variable import (
+    STUDENT_ID_FORMAT, NAME_SPACING, SUPPORTED_IMAGE_EXTENSIONS, AVATAR_LABEL_SPACING,
+    DEFAULT_MIN_SATURATION, DEFAULT_MAX_SATURATION, DEFAULT_MIN_VALUE, DEFAULT_MAX_VALUE,
+    LIGHT_VALUE_MULTIPLIER, LIGHT_MAX_VALUE_MULTIPLIER, DARK_VALUE_MULTIPLIER, DARK_MAX_VALUE_MULTIPLIER,
+    LIGHT_THEME_MAX_VALUE, LIGHT_THEME_ADJUSTED_MAX_VALUE, DARK_THEME_MIN_VALUE, DARK_THEME_MAX_VALUE,
+    LIGHTNESS_THRESHOLD, RGB_COLOR_FORMAT, GRID_ITEM_MARGIN, GRID_ITEM_SPACING, DEFAULT_AVAILABLE_WIDTH
+)
+from app.tools.path_utils import file_exists, get_data_path
+from app.tools.personalised import is_dark_theme
+from app.tools.settings_access import readme_settings_async
+from app.common.data.list import get_group_members
 
 from random import SystemRandom
 
@@ -352,7 +361,6 @@ class ResultDisplayUtils:
                             style_sheet += f"color: {fixed_color} !important;"
                         else:
                             try:
-                                from app.tools.personalised import is_dark_theme
                                 from qfluentwidgets import qconfig
 
                                 default_color = (
@@ -376,9 +384,7 @@ class ResultDisplayUtils:
                 style_sheet += f"color: {fixed_color} !important;"
             else:
                 try:
-                    from app.tools.personalised import is_dark_theme
                     from qfluentwidgets import qconfig
-
                     default_color = "#ffffff" if is_dark_theme(qconfig) else "#000000"
                     style_sheet += f"color: {default_color} !important;"
                 except Exception:

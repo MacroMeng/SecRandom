@@ -275,10 +275,10 @@ class update(QWidget):
     def force_check_for_updates(self):
         """强制检查更新"""
         # 直接调用check_for_updates方法执行强制更新检查
-        self.check_for_updates()
+        self.check_for_updates("force")
         logger.debug("用户进行了强制检查更新")
 
-    def check_for_updates(self):
+    def check_for_updates(self, mode="normal"):
         """触发更新检查"""
         # 更新状态显示
         self.status_label.setText(get_content_name_async("update", "checking_update"))
@@ -297,7 +297,10 @@ class update(QWidget):
                     latest_version_no = latest_version_info["version_no"]
 
                     # 比较版本号
-                    compare_result = compare_versions(VERSION, latest_version)
+                    if mode == "force":
+                        compare_result = compare_versions("v0.0.0", latest_version)
+                    else:
+                        compare_result = compare_versions(VERSION, latest_version)
 
                     if compare_result == 1:
                         # 有新版本

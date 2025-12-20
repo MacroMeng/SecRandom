@@ -361,8 +361,15 @@ class LevitationWindow(QWidget):
         self.setWindowOpacity(self._opacity)
         if self._visible_on_start:
             self.show()
+            # 浮窗显示后立即检测边缘
+            QTimer.singleShot(100, self._check_edge_proximity)
         else:
             self.hide()
+
+    def showEvent(self, event):
+        """重写showEvent，当浮窗显示时检测边缘"""
+        super().showEvent(event)
+        QTimer.singleShot(100, self._check_edge_proximity)
 
     def _apply_position(self):
         x = int(readme_settings_async("float_position", "x") or 100)

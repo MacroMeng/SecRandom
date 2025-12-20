@@ -19,11 +19,8 @@ from app.tools.settings_default import *
 from app.tools.settings_access import *
 from app.tools.settings_access import get_safe_font_size
 from app.Language.obtain_language import *
-from app.common.extraction.extract import (
-    import_cses_schedule, 
-    import_cses_schedule_from_content,
-    get_cses_import_template
-)
+from app.common.extraction.extract import import_cses_schedule, get_cses_import_template
+from app.page_building.another_window import create_cses_template_viewer_window
 
 
 # ==================================================
@@ -254,104 +251,14 @@ class cses_import_settings(GroupHeaderCardWidget):
     def on_view_template_clicked(self):
         """当点击查看模板按钮时的处理"""
         try:
-            # 获取模板内容
-            template_content = get_cses_import_template()
-            
-            # 创建对话框显示模板
-            dialog = QDialog(self)
-            dialog.setWindowTitle(get_content_name_async("time_settings", "template_title"))
-            dialog.setMinimumSize(600, 500)
-            
-            # 创建布局
-            layout = QVBoxLayout(dialog)
-            
-            # 创建文本编辑器
-            text_edit = QTextEdit()
-            text_edit.setPlainText(template_content)
-            text_edit.setReadOnly(True)
-            text_edit.setFont(QFont("Consolas", 10))
-            
-            # 创建按钮
-            button_layout = QHBoxLayout()
-            
-            copy_button = PushButton(get_content_name_async("time_settings", "copy_to_clipboard"))
-            copy_button.clicked.connect(lambda: self._copy_to_clipboard(template_content))
-            
-            save_button = PushButton(get_content_name_async("time_settings", "save_as_file"))
-            save_button.clicked.connect(lambda: self._save_template_file(template_content))
-            
-            close_button = PushButton(get_content_name_async("time_settings", "close"))
-            close_button.clicked.connect(dialog.close)
-            
-            button_layout.addWidget(copy_button)
-            button_layout.addWidget(save_button)
-            button_layout.addStretch()
-            button_layout.addWidget(close_button)
-            
-            layout.addWidget(text_edit)
-            layout.addLayout(button_layout)
-            
-            dialog.exec()
+            # 使用独立窗口模板创建CSES模板查看器
+            create_cses_template_viewer_window()
             
         except Exception as e:
             logger.error(f"显示模板失败: {e}")
             InfoBar.error(
                 title=get_content_name_async("time_settings", "import_failed"),
                 content=f"无法显示模板: {str(e)}",
-                orient=Qt.Horizontal,
-                isClosable=True,
-                position=InfoBarPosition.TOP,
-                duration=3000,
-                parent=self
-            )
-
-    def _copy_to_clipboard(self, content: str):
-        """复制内容到剪贴板"""
-        try:
-            clipboard = QApplication.clipboard()
-            clipboard.setText(content)
-            InfoBar.success(
-                title="复制成功",
-                content="模板已复制到剪贴板",
-                orient=Qt.Horizontal,
-                isClosable=True,
-                position=InfoBarPosition.TOP,
-                duration=2000,
-                parent=self
-            )
-        except Exception as e:
-            logger.error(f"复制到剪贴板失败: {e}")
-
-    def _save_template_file(self, content: str):
-        """保存模板为文件"""
-        try:
-            # 打开保存文件对话框
-            file_path, _ = QFileDialog.getSaveFileName(
-                self,
-                "保存CSES模板",
-                "cses_template.yaml",
-                "YAML文件 (*.yaml *.yml);;所有文件 (*.*)"
-            )
-            
-            if file_path:
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write(content)
-                
-                InfoBar.success(
-                    title="保存成功",
-                    content=f"模板已保存到: {file_path}",
-                    orient=Qt.Horizontal,
-                    isClosable=True,
-                    position=InfoBarPosition.TOP,
-                    duration=3000,
-                    parent=self
-                )
-                
-        except Exception as e:
-            logger.error(f"保存模板文件失败: {e}")
-            InfoBar.error(
-                title="保存失败",
-                content=f"无法保存模板文件: {str(e)}",
                 orient=Qt.Horizontal,
                 isClosable=True,
                 position=InfoBarPosition.TOP,

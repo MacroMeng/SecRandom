@@ -13,6 +13,7 @@ from app.view.another_window.prize.set_pool_name import SetPoolNameWindow
 from app.view.another_window.prize.prize_name_setting import PrizeNameSettingWindow
 from app.view.another_window.prize.prize_weight_setting import PrizeWeightSettingWindow
 from app.view.another_window.remaining_list import RemainingListPage
+from app.view.another_window.cses_template_viewer import CsesTemplateViewerWindow
 from app.Language.obtain_language import *
 from app.tools.variable import *
 
@@ -44,6 +45,34 @@ def create_set_class_name_window():
     window.switch_to_page("set_class_name")
     _window_instances["set_class_name"] = window
     window.windowClosed.connect(lambda: _window_instances.pop("set_class_name", None))
+    window.show()
+    return
+
+
+# ==================================================
+# CSES模板查看窗口
+# ==================================================
+class cses_template_viewer_window_template(PageTemplate):
+    """CSES模板查看窗口类
+    使用PageTemplate创建CSES模板查看页面"""
+
+    def __init__(self, parent=None):
+        super().__init__(content_widget_class=CsesTemplateViewerWindow, parent=parent)
+
+
+def create_cses_template_viewer_window():
+    """
+    创建CSES模板查看窗口
+
+    Returns:
+        创建的窗口实例
+    """
+    title = get_content_name_async("time_settings", "template_title")
+    window = SimpleWindowTemplate(title, width=700, height=500)
+    window.add_page_from_template("cses_template_viewer", cses_template_viewer_window_template)
+    window.switch_to_page("cses_template_viewer")
+    _window_instances["cses_template_viewer"] = window
+    window.windowClosed.connect(lambda: _window_instances.pop("cses_template_viewer", None))
     window.show()
     return
 

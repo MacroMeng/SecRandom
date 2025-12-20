@@ -316,3 +316,13 @@ schedule:
       day_of_week: 1
 """
     return template
+
+
+# ==================================================
+# 导出函数列表
+# ==================================================
+__all__ = [
+    'import_cses_schedule',
+    'import_cses_schedule_from_content', 
+    'get_cses_import_template'
+]

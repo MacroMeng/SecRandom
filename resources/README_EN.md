@@ -59,12 +59,15 @@
 
 ## 🎯 Why Choose Fair Selection
 
-Traditional random selection often has the problem of "repeatedly selecting certain people while others are rarely selected". SecRandom uses an **intelligent dynamic weight algorithm** to ensure every member gets a fair chance of being selected:
+Traditional random selection often has the problem of "repeatedly selecting certain people while others are rarely selected". SecRandom uses an **intelligent dynamic weight algorithm** combined with **average gap protection mechanism** to ensure every member gets a fair chance of being selected:
 
 - **Avoid Repeated Selection**: The more times someone is selected, the lower their probability of being selected again
 - **Balance Group Opportunities**: Ensure members from different groups have equal selection opportunities
 - **Gender Balance Consideration**: Balance selection frequency of different genders during the selection process
 - **Cold Start Protection**: New members or those who haven't been selected for a long time won't lose opportunities due to low weight
+- **Average Filtering**: Only allow members with selection count ≤ average to enter the candidate pool, avoiding over-selection
+- **Maximum Gap Protection**: When the gap between max and min selection counts exceeds the threshold, exclude extremes and recalculate to ensure fairness
+- **Candidate Pool Size Guarantee**: Ensure the candidate pool is not smaller than the set minimum size, avoiding single-person dead loops
 - **Probability Visualization**: Real-time display of each member's selection probability, making the process transparent and trustworthy
 
 ## 🌟 Core Features
@@ -73,6 +76,8 @@ Traditional random selection often has the problem of "repeatedly selecting cert
 
 - ✅ **Dynamic Weighting Algorithm**: Calculates based on multiple dimensions including selection count, group, and gender to ensure true fairness
 - ✅ **Cold Start Protection**: Prevents new members from having too low weight, ensuring everyone has equal opportunities
+- ✅ **Average Gap Protection**: Combines average filtering and maximum gap protection to avoid extreme uneven selection
+- ✅ **Flexible Configuration Options**: Customize gap threshold, minimum candidate pool size and other parameters
 - ✅ **Probability Visualization**: Intuitively displays each member's probability of being selected, making the selection process transparent
 
 ### 🎨 Modern User Experience

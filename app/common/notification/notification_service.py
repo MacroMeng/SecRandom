@@ -7,6 +7,7 @@ from qfluentwidgets import CardWidget, BodyLabel
 
 from app.page_building.page_template import PageTemplate
 from app.tools.variable import WINDOW_BOTTOM_POSITION_FACTOR
+from app.Language.obtain_language import get_any_position_value
 
 
 class NotificationContentWidget(QWidget):
@@ -331,18 +332,26 @@ class FloatingNotificationWindow(CardWidget):
         else:
             # 停止倒计时更新定时器并显示手动关闭提示
             self.countdown_timer.stop()
-            self.countdown_label.setText("连续点击3次关闭窗口")
+            self.countdown_label.setText(
+                get_any_position_value("notification_common", "manual_close_hint")
+            )
 
     def update_countdown_display(self):
         """更新倒计时显示"""
         self.remaining_time -= 1
         # 动画完成时显示倒计时
         if self.remaining_time >= 0:
-            self.countdown_label.setText(f"{self.remaining_time + 1}秒后自动关闭")
+            self.countdown_label.setText(
+                get_any_position_value("notification_common", "auto_close_hint").format(
+                    self.remaining_time + 1
+                )
+            )
         else:
             # 当倒计时结束时停止定时器
             self.countdown_timer.stop()
-            self.countdown_label.setText("连续点击3次关闭窗口")
+            self.countdown_label.setText(
+                get_any_position_value("notification_common", "manual_close_hint")
+            )
 
     def _on_theme_changed(self):
         """主题切换时更新浮窗内文字和背景颜色"""

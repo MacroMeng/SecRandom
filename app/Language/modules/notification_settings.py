@@ -15,13 +15,17 @@ notification_common = {
         "notification_result": {
             "name": "通知结果",
             "description": "通用通知结果窗口标题",
-        }
+        },
+        "auto_close_hint": "{0}秒后自动关闭\n连续点击3次关闭窗口",
+        "manual_close_hint": "连续点击3次关闭窗口",
     },
     "EN_US": {
         "notification_result": {
             "name": "Notice results",
             "description": "Generic notification result window title",
-        }
+        },
+        "auto_close_hint": "Auto close in {0}s\nClick 3 times to close window",
+        "manual_close_hint": "Click 3 times to close window",
     },
 }
 

@@ -154,15 +154,11 @@ def _get_cses_parser() -> CSESParser | None:
             logger.info("CSES目录不存在")
             return None
 
-        cses_files = [
-            f for f in os.listdir(cses_dir) if f.lower().endswith((".yaml", ".yml"))
-        ]
+        cses_file_path = os.path.join(cses_dir, "cses_schedule.yml")
 
-        if not cses_files:
-            logger.info("CSES目录中没有找到YAML文件")
+        if not os.path.exists(cses_file_path):
+            logger.info("CSES文件不存在")
             return None
-
-        cses_file_path = os.path.join(cses_dir, cses_files[0])
 
         parser = CSESParser()
         if not parser.load_from_file(cses_file_path):
@@ -269,7 +265,7 @@ def import_cses_schedule(file_path: str) -> Tuple[bool, str]:
             )
 
         original_file_name = Path(file_path).name
-        cses_data_path = get_data_path("CSES", original_file_name)
+        cses_data_path = get_data_path("CSES", "cses_schedule.yml")
         ensure_dir(get_data_path("CSES"))
         import shutil
 

@@ -1,29 +1,21 @@
-# ==================================================
-# 导入模块
-# ==================================================
-from qfluentwidgets import *
-from PySide6.QtGui import *
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtNetwork import *
-
-import os
 import json
-from typing import Dict
-from loguru import logger
-import shutil
+import os
 from pathlib import Path
-from PySide6.QtCore import QDateTime
+from typing import Dict, Tuple
 
-from app.tools.path_utils import *
-from app.common.extraction.cses_parser import CSESParser
+from PySide6.QtCore import QDateTime
+from PySide6.QtGui import *
+from PySide6.QtNetwork import *
+from PySide6.QtWidgets import *
+from loguru import logger
+from qfluentwidgets import *
+
 from app.Language.obtain_language import get_content_name_async
+from app.common.extraction.cses_parser import CSESParser
+from app.tools.path_utils import *
 from app.tools.settings_access import readme_settings_async
 
 
-# ==================================================
-# 判断当前时间是否在非上课时间段
-# ==================================================
 def _is_non_class_time() -> bool:
     """检测当前时间是否在非上课时间段
 
@@ -33,7 +25,6 @@ def _is_non_class_time() -> bool:
         bool: 如果当前时间在非上课时间段内返回True，否则返回False
     """
     try:
-        # 1. 检查课间禁用开关是否启用
         instant_draw_disable = readme_settings_async(
             "time_settings", "instant_draw_disable"
         )
@@ -41,85 +32,33 @@ def _is_non_class_time() -> bool:
         if not instant_draw_disable:
             return False
 
-        # 2. 检查是否启用了ClassIsland数据源
         use_class_island_source = readme_settings_async(
             "time_settings", "class_island_source_enabled"
         )
         logger.debug(f"是否启用了ClassIsland数据源: {use_class_island_source}")
         if use_class_island_source:
-            # 使用ClassIsland数据判断是否为课间时间
             class_island_break_status = readme_settings_async(
                 "time_settings", "current_class_island_break_status"
             )
             logger.debug(f"ClassIsland数据源当前课间状态: {class_island_break_status}")
-            # 确保返回布尔值
             return bool(class_island_break_status)
         else:
-            # 使用CSES配置的上课时间段
-            # 获取当前星期几
             current_day_of_week = _get_current_day_of_week()
-
-            # 获取当前星期几的上课时间段
             class_times = _get_class_times_by_day(current_day_of_week)
             if not class_times or not isinstance(class_times, dict):
-                # 如果没有上课时间配置，默认为上课时间
                 return False
 
-            # 获取当前时间并转换为总秒数
             current_total_seconds = _get_current_time_in_seconds()
             logger.debug(f"当前时间总秒数: {current_total_seconds}")
 
-            # 检查当前时间是否在上课时间段内
             is_in_class_time = _is_time_in_ranges(current_total_seconds, class_times)
             logger.debug(f"当前时间是否在上课时间段内: {is_in_class_time}")
 
-            # 如果不在上课时间段内，则是非上课时间
             return not is_in_class_time
 
     except Exception as e:
         logger.error(f"检测非上课时间失败: {e}")
         return False
-
-
-def _get_non_class_times_config() -> Dict[str, str]:
-    """获取非上课时间段配置
-
-    Returns:
-        Dict[str, str]: 非上课时间段配置字典，如果获取失败返回空字典
-    """
-    try:
-        # 从data/CSES目录获取CSES文件
-        cses_dir = get_data_path("CSES")
-        if not os.path.exists(cses_dir):
-            logger.info("CSES目录不存在，返回空的非上课时间配置")
-            return {}
-
-        # 获取CSES目录中的所有YAML文件
-        cses_files = [
-            f for f in os.listdir(cses_dir) if f.lower().endswith((".yaml", ".yml"))
-        ]
-
-        if not cses_files:
-            logger.info("CSES目录中没有找到YAML文件，返回空的非上课时间配置")
-            return {}
-
-        # 使用第一个找到的CSES文件
-        cses_file_path = os.path.join(cses_dir, cses_files[0])
-
-        # 创建CSES解析器并加载文件
-        parser = CSESParser()
-        if not parser.load_from_file(cses_file_path):
-            logger.error(f"加载CSES文件失败: {cses_file_path}")
-            return {}
-
-        # 使用CSES解析器获取非上课时间段
-        non_class_times = parser.get_non_class_times()
-        logger.info(f"成功从CSES文件生成{len(non_class_times)}个非上课时间段")
-        return non_class_times
-
-    except Exception as e:
-        logger.error(f"读取CSES时间设置失败: {e}")
-        return {}
 
 
 def _get_current_time_in_seconds() -> int:
@@ -147,47 +86,28 @@ def _get_current_day_of_week() -> int:
     return day_of_week
 
 
-def _get_class_times_by_day(day_of_week: int) -> Dict[str, str]:
-    """获取指定星期几的上课时间段
+def _parse_time_string_to_seconds(time_str: str) -> int:
+    """将时间字符串转换为总秒数
 
     Args:
-        day_of_week: 星期几（1=星期一，7=星期日）
+        time_str: 时间字符串，格式为 "HH:MM:SS" 或 "HH:MM"
 
     Returns:
-        Dict[str, str]: 上课时间段字典，格式为 {"name": "HH:MM:SS-HH:MM:SS"}
+        int: 时间的总秒数
+
+    Raises:
+        ValueError: 如果时间字符串格式不正确
     """
-    try:
-        cses_dir = get_data_path("CSES")
-        if not os.path.exists(cses_dir):
-            return {}
+    time_parts = list(map(int, time_str.split(":")))
 
-        cses_files = [
-            f for f in os.listdir(cses_dir) if f.lower().endswith((".yaml", ".yml"))
-        ]
+    if len(time_parts) < 2 or len(time_parts) > 3:
+        raise ValueError(f"时间字符串格式不正确: {time_str}")
 
-        if not cses_files:
-            return {}
+    hours = time_parts[0]
+    minutes = time_parts[1]
+    seconds = time_parts[2] if len(time_parts) > 2 else 0
 
-        cses_file_path = os.path.join(cses_dir, cses_files[0])
-
-        parser = CSESParser()
-        if not parser.load_from_file(cses_file_path):
-            return {}
-
-        # 尝试使用带周数的方法，如果失败则使用不带周数的方法
-        try:
-            class_times = parser.get_class_times_by_day_with_week(day_of_week, "all")
-            if class_times:
-                return class_times
-        except Exception:
-            pass
-
-        class_times = parser.get_class_times_by_day(day_of_week)
-        return class_times
-
-    except Exception as e:
-        logger.error(f"获取星期{day_of_week}的上课时间段失败: {e}")
-        return {}
+    return hours * 3600 + minutes * 60 + seconds
 
 
 def _is_time_in_ranges(current_seconds: int, time_ranges: Dict[str, str]) -> bool:
@@ -222,132 +142,76 @@ def _is_time_in_ranges(current_seconds: int, time_ranges: Dict[str, str]) -> boo
     return False
 
 
-def _parse_time_string_to_seconds(time_str: str) -> int:
-    """将时间字符串转换为总秒数
-
-    Args:
-        time_str: 时间字符串，格式为 "HH:MM:SS" 或 "HH:MM"
+def _get_cses_parser() -> CSESParser | None:
+    """获取CSES解析器实例
 
     Returns:
-        int: 时间的总秒数
-
-    Raises:
-        ValueError: 如果时间字符串格式不正确
-    """
-    time_parts = list(map(int, time_str.split(":")))
-
-    if len(time_parts) < 2 or len(time_parts) > 3:
-        raise ValueError(f"时间字符串格式不正确: {time_str}")
-
-    hours = time_parts[0]
-    minutes = time_parts[1]
-    seconds = time_parts[2] if len(time_parts) > 2 else 0
-
-    return hours * 3600 + minutes * 60 + seconds
-
-
-# ==================================================
-# CSES导入功能
-# ==================================================
-def import_cses_schedule(file_path: str) -> tuple[bool, str]:
-    """从CSES文件导入课程表
-
-    Args:
-        file_path: CSES文件路径
-
-    Returns:
-        tuple[bool, str]: (是否成功, 结果消息)
+        CSESParser | None: 成功返回解析器实例，失败返回None
     """
     try:
-        # 创建CSES解析器
+        cses_dir = get_data_path("CSES")
+        if not os.path.exists(cses_dir):
+            logger.info("CSES目录不存在")
+            return None
+
+        cses_files = [
+            f for f in os.listdir(cses_dir) if f.lower().endswith((".yaml", ".yml"))
+        ]
+
+        if not cses_files:
+            logger.info("CSES目录中没有找到YAML文件")
+            return None
+
+        cses_file_path = os.path.join(cses_dir, cses_files[0])
+
         parser = CSESParser()
+        if not parser.load_from_file(cses_file_path):
+            logger.error(f"加载CSES文件失败: {cses_file_path}")
+            return None
 
-        # 加载CSES文件
-        if not parser.load_from_file(file_path):
-            return False, get_content_name_async(
-                "time_settings", "cses_file_format_error"
-            )
-
-        # 获取非上课时间段配置
-        non_class_times = parser.get_non_class_times()
-        if not non_class_times:
-            return False, get_content_name_async(
-                "time_settings", "no_valid_time_periods"
-            )
-
-        # 保存原始文件到data/CSES文件夹
-        original_file_name = Path(file_path).name
-        cses_data_path = get_data_path("CSES", original_file_name)
-        ensure_dir(get_data_path("CSES"))
-        shutil.copy2(file_path, cses_data_path)
-        logger.info(f"已将CSES文件保存到: {cses_data_path}")
-
-        # 保存到设置文件
-        success = _save_non_class_times_to_settings(non_class_times)
-        if not success:
-            return False, get_content_name_async(
-                "time_settings", "save_settings_failed"
-            )
-
-        # 获取摘要信息
-        summary = parser.get_summary()
-        import_success_msg = get_content_name_async("time_settings", "import_success")
-        if "{}" in import_success_msg:
-            return True, import_success_msg.format(summary)
-        else:
-            return True, import_success_msg
+        return parser
 
     except Exception as e:
-        logger.error(f"导入CSES文件失败: {e}")
-        return False, get_content_name_async("time_settings", "import_failed").format(
-            str(e)
-        )
+        logger.error(f"获取CSES解析器失败: {e}")
+        return None
 
 
-def import_cses_schedule_from_content(content: str) -> tuple[bool, str]:
-    """从CSES内容字符串导入课程表
+def _get_class_times_by_day(day_of_week: int) -> Dict[str, str]:
+    """获取指定星期几的上课时间段
 
     Args:
-        content: CSES格式的YAML内容
+        day_of_week: 星期几（1=星期一，7=星期日）
 
     Returns:
-        tuple[bool, str]: (是否成功, 结果消息)
+        Dict[str, str]: 上课时间段字典，格式为 {"name": "HH:MM:SS-HH:MM:SS"}
     """
+    parser = _get_cses_parser()
+    if not parser:
+        return {}
+
     try:
-        # 创建CSES解析器
-        parser = CSESParser()
+        class_times = parser.get_class_times_by_day_with_week(day_of_week, "all")
+        if class_times:
+            return class_times
+    except Exception:
+        pass
 
-        # 加载CSES内容
-        if not parser.load_from_content(content):
-            return False, get_content_name_async(
-                "time_settings", "cses_content_format_error"
-            )
+    return parser.get_class_times_by_day(day_of_week)
 
-        # 获取非上课时间段配置
-        non_class_times = parser.get_non_class_times()
-        if not non_class_times:
-            return False, get_content_name_async(
-                "time_settings", "no_valid_time_periods"
-            )
 
-        # 保存到设置文件
-        success = _save_non_class_times_to_settings(non_class_times)
-        if not success:
-            return False, get_content_name_async(
-                "time_settings", "save_settings_failed"
-            )
+def _get_non_class_times_config() -> Dict[str, str]:
+    """获取非上课时间段配置
 
-        # 获取摘要信息
-        summary = parser.get_summary()
-        return True, get_content_name_async("time_settings", "import_success").format(
-            summary
-        )
+    Returns:
+        Dict[str, str]: 非上课时间段配置字典，如果获取失败返回空字典
+    """
+    parser = _get_cses_parser()
+    if not parser:
+        return {}
 
-    except Exception as e:
-        logger.error(f"导入CSES内容失败: {e}")
-        return False, get_content_name_async("time_settings", "import_failed").format(
-            str(e)
-        )
+    non_class_times = parser.get_non_class_times()
+    logger.info(f"成功从CSES文件生成{len(non_class_times)}个非上课时间段")
+    return non_class_times
 
 
 def _save_non_class_times_to_settings(non_class_times: Dict[str, str]) -> bool:
@@ -362,17 +226,14 @@ def _save_non_class_times_to_settings(non_class_times: Dict[str, str]) -> bool:
     try:
         settings_path = get_settings_path()
 
-        # 读取现有设置
         if file_exists(settings_path):
             with open_file(settings_path, "r", encoding="utf-8") as f:
                 settings = json.load(f)
         else:
             settings = {}
 
-        # 更新非上课时间段配置
         settings["non_class_times"] = non_class_times
 
-        # 写入设置文件
         with open_file(settings_path, "w", encoding="utf-8") as f:
             json.dump(settings, f, ensure_ascii=False, indent=2)
 
@@ -384,56 +245,84 @@ def _save_non_class_times_to_settings(non_class_times: Dict[str, str]) -> bool:
         return False
 
 
-def get_cses_import_template() -> str:
-    """获取CSES导入模板内容
+def import_cses_schedule(file_path: str) -> Tuple[bool, str]:
+    """从CSES文件导入课程表
+
+    Args:
+        file_path: CSES文件路径
 
     Returns:
-        str: CSES格式的模板内容
+        Tuple[bool, str]: (是否成功, 结果消息)
     """
-    template = f"""{get_content_name_async("extraction_settings", "cses_template.header")}
-{get_content_name_async("extraction_settings", "cses_template.reference")}
+    try:
+        parser = CSESParser()
 
-{get_content_name_async("extraction_settings", "cses_template.schedule")}
-{get_content_name_async("extraction_settings", "cses_template.timeslots")}
-{get_content_name_async("extraction_settings", "cses_template.name_field")}
-{get_content_name_async("extraction_settings", "cses_template.start_time_field")}
-{get_content_name_async("extraction_settings", "cses_template.end_time_field")}
-{get_content_name_async("extraction_settings", "cses_template.teacher_field")}
-{get_content_name_async("extraction_settings", "cses_template.location_field")}
-{get_content_name_async("extraction_settings", "cses_template.day_of_week_field")}
+        if not parser.load_from_file(file_path):
+            return False, get_content_name_async(
+                "time_settings", "cses_file_format_error"
+            )
 
+        non_class_times = parser.get_non_class_times()
+        if not non_class_times:
+            return False, get_content_name_async(
+                "time_settings", "no_valid_time_periods"
+            )
 
-    - name: \"第二节课\"
-      start_time: \"08:55\"
-      end_time: \"09:40\"
-      teacher: \"李老师\"
-      location: \"教室B\"
-      day_of_week: 1
+        original_file_name = Path(file_path).name
+        cses_data_path = get_data_path("CSES", original_file_name)
+        ensure_dir(get_data_path("CSES"))
+        import shutil
 
+        shutil.copy2(file_path, cses_data_path)
+        logger.info(f"已将CSES文件保存到: {cses_data_path}")
 
-    - name: \"第三节课\"
-      start_time: \"10:00\"
-      end_time: \"10:45\"
-      teacher: \"王老师\"
-      location: \"教室C\"
-      day_of_week: 1
+        summary = parser.get_summary()
+        import_success_msg = get_content_name_async("time_settings", "import_success")
+        if "{}" in import_success_msg:
+            return True, import_success_msg.format(summary)
+        else:
+            return True, import_success_msg
 
-
-    - name: \"第四节课\"
-      start_time: \"10:55\"
-      end_time: \"11:40\"
-      teacher: \"赵老师\"
-      location: \"教室D\"
-      day_of_week: 1
-"""
-    return template
+    except Exception as e:
+        logger.error(f"导入CSES文件失败: {e}")
+        return False, get_content_name_async("time_settings", "import_failed").format(
+            str(e)
+        )
 
 
-# ==================================================
-# 导出函数列表
-# ==================================================
-__all__ = [
-    "import_cses_schedule",
-    "import_cses_schedule_from_content",
-    "get_cses_import_template",
-]
+def import_cses_schedule_from_content(content: str) -> Tuple[bool, str]:
+    """从CSES内容字符串导入课程表
+
+    Args:
+        content: CSES格式的YAML内容
+
+    Returns:
+        Tuple[bool, str]: (是否成功, 结果消息)
+    """
+    try:
+        parser = CSESParser()
+
+        if not parser.load_from_content(content):
+            return False, get_content_name_async(
+                "time_settings", "cses_content_format_error"
+            )
+
+        non_class_times = parser.get_non_class_times()
+        if not non_class_times:
+            return False, get_content_name_async(
+                "time_settings", "no_valid_time_periods"
+            )
+
+        summary = parser.get_summary()
+        return True, get_content_name_async("time_settings", "import_success").format(
+            summary
+        )
+
+    except Exception as e:
+        logger.error(f"导入CSES内容失败: {e}")
+        return False, get_content_name_async("time_settings", "import_failed").format(
+            str(e)
+        )
+
+
+__all__ = ["import_cses_schedule", "import_cses_schedule_from_content"]

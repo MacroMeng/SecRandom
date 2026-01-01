@@ -1,7 +1,6 @@
 # ==================================================
 # 导入库
 # ==================================================
-import json
 import os
 
 from loguru import logger
@@ -214,22 +213,10 @@ class cses_import_settings(GroupHeaderCardWidget):
                         except Exception as e:
                             logger.error(f"解析文件{file_name}失败: {e}")
 
-            # 从设置文件中获取non_class_times
-            settings_path = get_settings_path()
-            non_class_times = {}
-            if file_exists(settings_path):
-                with open_file(settings_path, "r", encoding="utf-8") as f:
-                    settings = json.load(f)
-                non_class_times = settings.get("non_class_times", {})
-
             # 判断是否有课程表数据
-            if non_class_times or total_class_periods > 0:
-                if non_class_times:
-                    # 使用non_class_times的数量（非上课时间段）
-                    count = len(non_class_times)
-                else:
-                    # 使用上课时间段数量
-                    count = total_class_periods
+            if total_class_periods > 0:
+                # 使用上课时间段数量
+                count = total_class_periods
 
                 self.schedule_info_label.setText(
                     get_content_name_async("time_settings", "schedule_imported").format(

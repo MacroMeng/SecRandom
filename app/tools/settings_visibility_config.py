@@ -21,6 +21,7 @@ SETTINGS_VISIBILITY_CONFIG = {
         "animation_interval": False,
         "autoplay_count": False,
         "color_theme": False,
+        "draw_count": False,
     },
     "lottery_settings": {
         "use_global_font": False,

@@ -129,6 +129,7 @@ DEFAULT_SETTINGS = {
         "draw_type": {"default_value": 0},
         "default_class": {"default_value": ""},
         "disable_after_click": {"default_value": 1},
+        "draw_count": {"default_value": 1},
         "font_size": {"default_value": 50},
         "display_format": {"default_value": 0},
         "use_global_font": {"default_value": 0},

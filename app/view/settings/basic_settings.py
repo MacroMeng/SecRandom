@@ -637,6 +637,19 @@ class basic_settings_personalised(GroupHeaderCardWidget):
             lambda font: update_settings("basic_settings", "font", font)
         )
 
+        # 字体粗细设置卡片
+        self.fontWeightComboBox = ComboBox()
+        font_weight_items = get_content_combo_name_async(
+            "basic_settings", "font_weight"
+        )
+        self.fontWeightComboBox.addItems(font_weight_items)
+        self.fontWeightComboBox.setCurrentIndex(
+            int(readme_settings_async("basic_settings", "font_weight"))
+        )
+        self.fontWeightComboBox.currentIndexChanged.connect(
+            lambda index: update_settings("basic_settings", "font_weight", index)
+        )
+
         # 界面缩放设置卡片
         self.dpiScale = ComboBox()
         dpi_scale_items = get_content_combo_name_async("basic_settings", "dpiScale")
@@ -689,6 +702,12 @@ class basic_settings_personalised(GroupHeaderCardWidget):
             get_content_name_async("basic_settings", "font"),
             get_content_description_async("basic_settings", "font"),
             self.fontComboBox,
+        )
+        self.addGroup(
+            get_theme_icon("ic_fluent_text_bold_20_filled"),
+            get_content_name_async("basic_settings", "font_weight"),
+            get_content_description_async("basic_settings", "font_weight"),
+            self.fontWeightComboBox,
         )
         self.addGroup(
             get_theme_icon("ic_fluent_zoom_fit_20_filled"),

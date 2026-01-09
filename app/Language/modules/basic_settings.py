@@ -111,6 +111,21 @@ basic_settings = {
             "name": "字体",
             "description": "设置软件界面显示字体（重启软件后生效）",
         },
+        "font_weight": {
+            "name": "字体粗细",
+            "description": "设置软件界面字体粗细（重启软件后生效）",
+            "combo_items": [
+                "极细",
+                "特细",
+                "细体",
+                "常规",
+                "中等",
+                "半粗",
+                "粗体",
+                "特粗",
+                "极粗",
+            ],
+        },
         "theme": {
             "name": "主题模式",
             "description": "选择软件界面主题样式",
@@ -264,7 +279,22 @@ basic_settings = {
         },
         "font": {
             "name": "Font",
-            "description": "Set the font to display (restart required)",
+            "description": "Set font to display (restart required)",
+        },
+        "font_weight": {
+            "name": "Font weight",
+            "description": "Set font weight to display (restart required)",
+            "combo_items": [
+                "Thin",
+                "ExtraLight",
+                "Light",
+                "Normal",
+                "Medium",
+                "DemiBold",
+                "Bold",
+                "ExtraBold",
+                "Black",
+            ],
         },
         "theme": {
             "name": "Theme mode",

@@ -44,6 +44,7 @@ DEFAULT_SETTINGS = {
         "log_level": {"default_value": "INFO"},
         "dpiScale": {"default_value": "Auto"},
         "font": {"default_value": DEFAULT_FONT_NAME_PRIMARY},
+        "font_weight": {"default_value": "3"},
         "theme": {"default_value": "AUTO"},
         "theme_color": {"default_value": DEFAULT_THEME_COLOR},
         "language": {"default_value": "ZH_CN"},

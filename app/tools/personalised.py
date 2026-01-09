@@ -13,6 +13,7 @@ from loguru import logger
 from app.tools.variable import *
 from app.tools.path_utils import *
 from app.tools.settings_access import *
+from app.core.font_manager import get_font_weight_file
 
 
 # ==================================================
@@ -79,12 +80,29 @@ def _load_font_by_setting(font_family_setting):
     Returns:
         str: 加载成功的字体家族名称，失败则返回 None
     """
+    # 获取字体粗细设置
+    from app.tools.settings_access import readme_settings_async
+
+    font_weight_value = readme_settings_async("basic_settings", "font_weight")
+    font_weight_int = int(font_weight_value) if font_weight_value else 3
+
     font_map = {
-        "汉仪文黑-85W": "汉仪文黑-85W.ttf",
-        "HarmonyOS Sans SC": "HarmonyOS_Sans_SC_Bold.ttf",
+        "HarmonyOS Sans SC": None,  # 特殊处理，使用字体粗细
     }
 
-    if font_family_setting in font_map:
+    if font_family_setting == "HarmonyOS Sans SC":
+        # 对于默认字体，根据粗细加载对应的字体文件
+        font_file = get_font_weight_file(font_weight_int)
+        font_path = get_data_path("font/HarmonyOS_Sans_SC", font_file)
+        font_id = QFontDatabase.addApplicationFont(str(font_path))
+
+        if font_id < 0:
+            logger.error(f"加载自定义字体失败: {font_path}")
+            return None
+
+        font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
+        return font_family
+    elif font_family_setting in font_map:
         font_file = font_map[font_family_setting]
         font_path = get_data_path("font", font_file)
         font_id = QFontDatabase.addApplicationFont(str(font_path))
@@ -106,7 +124,15 @@ def _load_default_font():
     Returns:
         str: 加载成功的字体家族名称
     """
-    font_path = get_data_path("font", "HarmonyOS_Sans_SC_Bold.ttf")
+    # 获取字体粗细设置
+    from app.tools.settings_access import readme_settings_async
+
+    font_weight_value = readme_settings_async("basic_settings", "font_weight")
+    font_weight_int = int(font_weight_value) if font_weight_value else 3
+
+    # 根据粗细获取对应的字体文件
+    font_file = get_font_weight_file(font_weight_int)
+    font_path = get_data_path("font/HarmonyOS_Sans_SC", font_file)
     font_id = QFontDatabase.addApplicationFont(str(font_path))
 
     if font_id < 0:

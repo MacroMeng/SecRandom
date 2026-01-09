@@ -17,6 +17,7 @@ from app.tools.settings_default import *
 from app.tools.settings_access import *
 from app.Language.obtain_language import *
 from app.common.history.history import *
+from app.common.data.list import get_gender_list, get_group_list
 
 
 # ==================================================
@@ -441,6 +442,14 @@ class roll_call_history_table(GroupHeaderCardWidget):
             start_row = self.current_row
             end_row = min(start_row + self.batch_size, self.total_rows)
 
+            # 检查班级是否设置了性别和小组
+            has_gender = False
+            has_group = False
+            gender_list = get_gender_list(self.current_class_name)
+            group_list = get_group_list(self.current_class_name)
+            has_gender = bool(gender_list) and gender_list != [""]
+            has_group = bool(group_list) and group_list != [""]
+
             # 填充表格数据
             for i in range(start_row, end_row):
                 if i >= len(students_data):
@@ -448,31 +457,39 @@ class roll_call_history_table(GroupHeaderCardWidget):
 
                 student = students_data[i]
                 row = i
+                col = 0
 
                 # 学号
                 id_item = create_table_item(student.get("id", str(row + 1)))
-                self.table.setItem(row, 0, id_item)
+                self.table.setItem(row, col, id_item)
+                col += 1
 
                 # 姓名
                 name_item = create_table_item(student.get("name", ""))
-                self.table.setItem(row, 1, name_item)
+                self.table.setItem(row, col, name_item)
+                col += 1
 
-                # 性别
-                gender_item = create_table_item(student.get("gender", ""))
-                self.table.setItem(row, 2, gender_item)
+                # 性别（如果设置了性别）
+                if has_gender:
+                    gender_item = create_table_item(student.get("gender", ""))
+                    self.table.setItem(row, col, gender_item)
+                    col += 1
 
-                # 小组
-                group_item = create_table_item(student.get("group", ""))
-                self.table.setItem(row, 3, group_item)
+                # 小组（如果设置了小组）
+                if has_group:
+                    group_item = create_table_item(student.get("group", ""))
+                    self.table.setItem(row, col, group_item)
+                    col += 1
 
                 # 总次数
                 total_count_item = create_table_item(
                     str(student.get("total_count_str", student.get("total_count", 0)))
                 )
-                self.table.setItem(row, 4, total_count_item)
+                self.table.setItem(row, col, total_count_item)
+                col += 1
 
                 # 如果需要显示权重
-                if self.table.columnCount() > 5:
+                if self.table.columnCount() > col:
                     weight_item = create_table_item(
                         str(
                             format_weight(
@@ -480,7 +497,7 @@ class roll_call_history_table(GroupHeaderCardWidget):
                             )
                         )
                     )
-                    self.table.setItem(row, 5, weight_item)
+                    self.table.setItem(row, col, weight_item)
 
             # 更新当前行数
             self.current_row = end_row
@@ -579,6 +596,14 @@ class roll_call_history_table(GroupHeaderCardWidget):
             start_row = self.current_row
             end_row = min(start_row + self.batch_size, self.total_rows)
 
+            # 检查班级是否设置了性别和小组
+            has_gender = False
+            has_group = False
+            gender_list = get_gender_list(self.current_class_name)
+            group_list = get_group_list(self.current_class_name)
+            has_gender = bool(gender_list) and gender_list != [""]
+            has_group = bool(group_list) and group_list != [""]
+
             # 填充表格数据
             for i in range(start_row, end_row):
                 if i >= len(students_data):
@@ -586,35 +611,43 @@ class roll_call_history_table(GroupHeaderCardWidget):
 
                 student = students_data[i]
                 row = i
+                col = 0
 
                 # 时间
                 draw_time_item = create_table_item(student.get("draw_time", ""))
-                self.table.setItem(row, 0, draw_time_item)
+                self.table.setItem(row, col, draw_time_item)
+                col += 1
 
                 # 学号
                 id_item = create_table_item(student.get("id", str(row + 1)))
-                self.table.setItem(row, 1, id_item)
+                self.table.setItem(row, col, id_item)
+                col += 1
 
                 # 姓名
                 name_item = create_table_item(student.get("name", ""))
-                self.table.setItem(row, 2, name_item)
+                self.table.setItem(row, col, name_item)
+                col += 1
 
-                # 性别
-                gender = student.get("gender", "")
-                gender_item = create_table_item(str(gender) if gender else "")
-                self.table.setItem(row, 3, gender_item)
+                # 性别（如果设置了性别）
+                if has_gender:
+                    gender = student.get("gender", "")
+                    gender_item = create_table_item(str(gender) if gender else "")
+                    self.table.setItem(row, col, gender_item)
+                    col += 1
 
-                # 小组
-                group = student.get("group", "")
-                group_item = create_table_item(str(group) if group else "")
-                self.table.setItem(row, 4, group_item)
+                # 小组（如果设置了小组）
+                if has_group:
+                    group = student.get("group", "")
+                    group_item = create_table_item(str(group) if group else "")
+                    self.table.setItem(row, col, group_item)
+                    col += 1
 
                 # 如果需要显示权重
-                if self.table.columnCount() > 5:
+                if self.table.columnCount() > col:
                     weight_item = create_table_item(
                         str(format_weight(student.get("weight", "")))
                     )
-                    self.table.setItem(row, 5, weight_item)
+                    self.table.setItem(row, col, weight_item)
 
             # 更新当前行数
             self.current_row = end_row
@@ -713,6 +746,14 @@ class roll_call_history_table(GroupHeaderCardWidget):
             start_row = self.current_row
             end_row = min(start_row + self.batch_size, self.total_rows)
 
+            # 检查班级是否设置了性别和小组
+            has_gender = False
+            has_group = False
+            gender_list = get_gender_list(self.current_class_name)
+            group_list = get_group_list(self.current_class_name)
+            has_gender = bool(gender_list) and gender_list != [""]
+            has_group = bool(group_list) and group_list != [""]
+
             # 填充表格数据
             for i in range(start_row, end_row):
                 if i >= len(students_data):
@@ -720,37 +761,45 @@ class roll_call_history_table(GroupHeaderCardWidget):
 
                 student = students_data[i]
                 row = i
+                col = 0
 
                 # 时间
                 time_item = create_table_item(student.get("draw_time", ""))
-                self.table.setItem(row, 0, time_item)
+                self.table.setItem(row, col, time_item)
+                col += 1
 
                 # 模式
                 mode_item = create_table_item(student.get("draw_method", ""))
-                self.table.setItem(row, 1, mode_item)
+                self.table.setItem(row, col, mode_item)
+                col += 1
 
                 # 人数
                 draw_people_numbers_item = create_table_item(
                     str(student.get("draw_people_numbers", 0))
                 )
-                self.table.setItem(row, 2, draw_people_numbers_item)
+                self.table.setItem(row, col, draw_people_numbers_item)
+                col += 1
 
-                # 性别
-                draw_gender = student.get("draw_gender", "")
-                gender_item = create_table_item(draw_gender if draw_gender else "")
-                self.table.setItem(row, 3, gender_item)
+                # 性别（如果设置了性别）
+                if has_gender:
+                    draw_gender = student.get("draw_gender", "")
+                    gender_item = create_table_item(draw_gender if draw_gender else "")
+                    self.table.setItem(row, col, gender_item)
+                    col += 1
 
-                # 小组
-                draw_group = student.get("draw_group", "")
-                group_item = create_table_item(draw_group if draw_group else "")
-                self.table.setItem(row, 4, group_item)
+                # 小组（如果设置了小组）
+                if has_group:
+                    draw_group = student.get("draw_group", "")
+                    group_item = create_table_item(draw_group if draw_group else "")
+                    self.table.setItem(row, col, group_item)
+                    col += 1
 
                 # 如果需要显示权重
-                if self.table.columnCount() > 5:
+                if self.table.columnCount() > col:
                     weight_item = create_table_item(
                         str(format_weight(student.get("weight", 0)))
                     )
-                    self.table.setItem(row, 5, weight_item)
+                    self.table.setItem(row, col, weight_item)
 
             # 更新当前行数
             self.current_row = end_row
@@ -976,5 +1025,42 @@ class roll_call_history_table(GroupHeaderCardWidget):
             headers = get_content_name_async(
                 "roll_call_history_table", "HeaderLabels_Individual_weight"
             )
+
+        # 检查班级是否设置了性别和小组
+        has_gender = False
+        has_group = False
+        if self.current_class_name:
+            gender_list = get_gender_list(self.current_class_name)
+            group_list = get_group_list(self.current_class_name)
+            # 如果性别列表不为空且不全是空字符串，则认为设置了性别
+            has_gender = bool(gender_list) and gender_list != [""]
+            # 如果小组列表不为空且不全是空字符串，则认为设置了小组
+            has_group = bool(group_list) and group_list != [""]
+
+        # 根据是否有性别和小组动态调整表头
+        # 对于模式0和1，需要隐藏性别和小组列
+        if self.current_mode in [0, 1]:
+            # 原始表头结构: [学号, 姓名, 性别, 小组, 点名次数/时间, 权重]
+            # 如果没有性别，移除性别列（索引2）
+            if not has_gender and len(headers) > 2:
+                headers = headers[:2] + headers[3:]
+            # 如果没有小组，移除小组列（在移除性别后的索引3，否则是索引3）
+            if not has_group:
+                if not has_gender and len(headers) > 3:
+                    headers = headers[:3] + headers[4:]
+                elif has_gender and len(headers) > 3:
+                    headers = headers[:3] + headers[4:]
+        elif self.current_mode == 2:
+            # 原始表头结构: [点名时间, 点名模式, 点名人数, 性别限制, 小组限制, 权重]
+            # 如果没有性别，移除性别限制列（索引3）
+            if not has_gender and len(headers) > 3:
+                headers = headers[:3] + headers[4:]
+            # 如果没有小组，移除小组限制列（在移除性别后的索引4，否则是索引4）
+            if not has_group:
+                if not has_gender and len(headers) > 4:
+                    headers = headers[:4] + headers[5:]
+                elif has_gender and len(headers) > 4:
+                    headers = headers[:4] + headers[5:]
+
         self.table.setColumnCount(len(headers))
         self.table.setHorizontalHeaderLabels(headers)

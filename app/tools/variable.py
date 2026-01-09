@@ -69,7 +69,7 @@ MAX_CACHED_PAGES = 1  # 最大同时保留在内存中的页面数量
 
 # -------------------- 字体配置 --------------------
 DEFAULT_FONT_NAME_PRIMARY = "HarmonyOS Sans SC"  # 主要字体名称
-DEFAULT_FONT_FILENAME_PRIMARY = "HarmonyOS_Sans_SC_Bold.ttf"  # 主要字体文件名
+DEFAULT_FONT_FILENAME_PRIMARY = "HarmonyOS_Sans_SC_Regular.ttf"  # 主要字体文件名
 DEFAULT_FONT_NAME_ALT = "汉仪文黑-85W"  # 备用字体名称
 DEFAULT_FONT_FILENAME_ALT = "汉仪文黑-85W.ttf"  # 备用字体文件名
 

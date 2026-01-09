@@ -156,12 +156,8 @@ class basic_settings(GroupHeaderCardWidget):
                 "lottery_notification_settings", "notification_service_type"
             )
         )
-        self.notification_service_type_combo_box.currentTextChanged.connect(
-            lambda: update_settings(
-                "lottery_notification_settings",
-                "notification_service_type",
-                self.notification_service_type_combo_box.currentIndex(),
-            )
+        self.notification_service_type_combo_box.currentIndexChanged.connect(
+            self.on_notification_service_type_changed
         )
 
         # 添加设置项到分组
@@ -211,6 +207,38 @@ class basic_settings(GroupHeaderCardWidget):
             ),
             self.notification_service_type_combo_box,
         )
+
+    def on_notification_service_type_changed(self, index):
+        """通知服务类型变化时的处理"""
+        update_settings(
+            "lottery_notification_settings",
+            "notification_service_type",
+            index,
+        )
+        # 如果选择了ClassIsland或内置+ClassIsland，显示提示信息
+        if index == 1 or index == 2:
+            from qfluentwidgets import InfoBar, InfoBarPosition
+
+            hint_title = get_any_position_value_async(
+                "lottery_notification_settings",
+                "classisland_notification_hint",
+                "title",
+            )
+            hint_content = get_any_position_value_async(
+                "lottery_notification_settings",
+                "classisland_notification_hint",
+                "content",
+            )
+
+            InfoBar.success(
+                title=hint_title,
+                content=hint_content,
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=5000,
+                parent=self,
+            )
 
 
 class floating_window_settings(GroupHeaderCardWidget):

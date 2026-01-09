@@ -114,6 +114,10 @@ roll_call_notification_settings = {
             "description": "点名完成后不抢占焦点，保持原有顶层软件焦点",
             "switchbutton_name": {"enable": "", "disable": ""},
         },
+        "classisland_notification_hint": {
+            "title": "ClassIsland通知服务",
+            "content": "请确保已安装.NET 8运行时，并在ClassIsland中安装SecRandom-Ci插件",
+        },
     },
     "EN_US": {
         "title": {
@@ -200,6 +204,10 @@ roll_call_notification_settings = {
             "name": "Focusless Mode",
             "description": "Do not steal focus after Quick Pick, keep focus on original top-level software",
         },
+        "classisland_notification_hint": {
+            "title": "ClassIsland Notification Service",
+            "content": "Please ensure .NET 8 runtime is installed and SecRandom-Ci plugin is installed in ClassIsland",
+        },
     },
 }
 
@@ -271,6 +279,10 @@ quick_draw_notification_settings = {
             "name": "通知显示时长",
             "description": "设置ClassIsland通知显示时长（秒）",
         },
+        "classisland_notification_hint": {
+            "title": "ClassIsland通知服务",
+            "content": "请确保已安装.NET 8运行时，并在ClassIsland中安装SecRandom-Ci插件",
+        },
     },
     "EN_US": {
         "title": {
@@ -340,6 +352,10 @@ quick_draw_notification_settings = {
         "notification_display_duration": {
             "name": "Notification display duration",
             "description": "Set notification display duration (seconds)",
+        },
+        "classisland_notification_hint": {
+            "title": "ClassIsland Notification Service",
+            "content": "Please ensure .NET 8 runtime is installed and SecRandom-Ci plugin is installed in ClassIsland",
         },
     },
 }
@@ -430,6 +446,10 @@ lottery_notification_settings = {
             "name": "通知显示时长",
             "description": "设置ClassIsland通知显示时长（秒）",
         },
+        "classisland_notification_hint": {
+            "title": "ClassIsland通知服务",
+            "content": "请确保已安装.NET 8运行时，并在ClassIsland中安装SecRandom-Ci插件",
+        },
     },
     "EN_US": {
         "title": {
@@ -511,6 +531,10 @@ lottery_notification_settings = {
         "notification_display_duration": {
             "name": "Notification display duration",
             "description": "Set notification display duration (seconds)",
+        },
+        "classisland_notification_hint": {
+            "title": "ClassIsland Notification Service",
+            "content": "Please ensure .NET 8 runtime is installed and SecRandom-Ci plugin is installed in ClassIsland",
         },
     },
 }

@@ -1,5 +1,6 @@
 from typing import Optional, Callable, TYPE_CHECKING
 from loguru import logger
+from PySide6.QtCore import QTimer
 from app.tools.settings_access import readme_settings_async
 from app.core.utils import safe_execute, safe_close_window
 
@@ -120,8 +121,20 @@ class WindowManager:
         show_startup_window = readme_settings_async(
             "basic_settings", "show_startup_window"
         )
-        if show_startup_window:
+        is_maximized = readme_settings_async("window", "is_maximized")
+
+        if is_maximized:
+            from app.tools.variable import APP_INIT_DELAY
+
             self.main_window.show()
+            self.main_window.hide()
+            QTimer.singleShot(APP_INIT_DELAY, self.main_window.showMaximized)
+            if not show_startup_window:
+                QTimer.singleShot(APP_INIT_DELAY, self.main_window.hide)
+        else:
+            self.main_window.show()
+            if not show_startup_window:
+                self.main_window.hide()
 
         startup_display_float = readme_settings_async(
             "floating_window_management", "startup_display_floating_window"

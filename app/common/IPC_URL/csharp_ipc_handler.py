@@ -318,7 +318,9 @@ if CSHARP_AVAILABLE:
                         self.is_connected = False
 
                         task = self.ipc_client.Connect()
-                        await self.loop.run_in_executor(None, lambda task=task: task.Wait())
+                        await self.loop.run_in_executor(
+                            None, lambda task=task: task.Wait()
+                        )
                         self.is_connected = True
                         self._disconnect_logged = False
 

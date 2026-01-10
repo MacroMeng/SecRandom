@@ -89,11 +89,11 @@ def main():
         logger.debug("Qt 事件循环已结束")
 
         # 尝试停止所有后台服务
-        if 'cs_ipc_handler' in locals() and cs_ipc_handler:
+        if "cs_ipc_handler" in locals() and cs_ipc_handler:
             cs_ipc_handler.stop_ipc_client()
 
-        if 'url_handler' in locals() and url_handler:
-            if hasattr(url_handler, 'url_ipc_handler'):
+        if "url_handler" in locals() and url_handler:
+            if hasattr(url_handler, "url_ipc_handler"):
                 url_handler.url_ipc_handler.stop_ipc_server()
 
         shared_memory.detach()
@@ -120,9 +120,9 @@ def main():
         os._exit(0)
     except Exception as e:
         logger.error(f"程序退出过程中发生异常: {e}")
-        if 'shared_memory' in locals():
+        if "shared_memory" in locals():
             shared_memory.detach()
-        if 'local_server' in locals() and local_server:
+        if "local_server" in locals() and local_server:
             local_server.close()
         sys.stdout.flush()
         sys.stderr.flush()

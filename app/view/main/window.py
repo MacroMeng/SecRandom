@@ -63,6 +63,9 @@ class MainWindow(FluentWindow):
         self.roll_call_page = None
         self.settingsInterface = None
 
+        # 窗口是否真正显示过标志
+        self._has_been_shown = False
+
         self.shortcut_manager = ShortcutManager(self)
         self._connect_shortcut_signals()
         self.shortcut_manager._init_shortcuts()
@@ -172,6 +175,9 @@ class MainWindow(FluentWindow):
     def _position_window(self):
         """窗口定位
         根据屏幕尺寸和用户设置自动计算最佳位置"""
+        # 临时禁用 resize_timer，避免在初始化时保存默认窗口大小
+        self.resize_timer.stop()
+
         is_maximized = readme_settings_async("window", "is_maximized")
         if is_maximized:
             pre_maximized_width = readme_settings_async("window", "pre_maximized_width")
@@ -180,7 +186,6 @@ class MainWindow(FluentWindow):
             )
             self.resize(pre_maximized_width, pre_maximized_height)
             self._center_window()
-            QTimer.singleShot(APP_INIT_DELAY, self.showMaximized)
         else:
             window_width = readme_settings_async("window", "width")
             window_height = readme_settings_async("window", "height")
@@ -543,6 +548,12 @@ class MainWindow(FluentWindow):
         else:
             event.accept()
 
+    def showEvent(self, event):
+        """窗口显示事件处理
+        标记窗口已经显示过"""
+        self._has_been_shown = True
+        super().showEvent(event)
+
     def resizeEvent(self, event):
         """窗口大小变化事件处理
         检测窗口大小变化，启动尺寸记录倒计时，避免频繁IO操作"""
@@ -592,6 +603,10 @@ class MainWindow(FluentWindow):
     def save_window_size(self, width, height):
         """保存窗口大小
         记录当前窗口尺寸，下次启动时自动恢复"""
+        # 如果窗口从未真正显示过，不保存窗口大小
+        if not self._has_been_shown:
+            return
+
         # 检查是否启用了自动保存窗口大小功能
         auto_save_enabled = readme_settings_async(
             "basic_settings", "auto_save_window_size"
@@ -600,8 +615,10 @@ class MainWindow(FluentWindow):
         if auto_save_enabled:
             # 只有在非最大化状态下才保存窗口大小
             if not self.isMaximized():
-                update_settings("window", "height", height)
-                update_settings("window", "width", width)
+                # 只有在窗口可见时才保存窗口大小
+                if self.isVisible():
+                    update_settings("window", "height", height)
+                    update_settings("window", "width", width)
 
     def toggle_window(self):
         """切换窗口显示状态
@@ -628,7 +645,10 @@ class MainWindow(FluentWindow):
         logger.info("程序正在退出 (close_window_secrandom)...")
 
         # 停止课前重置定时器
-        if hasattr(self, "pre_class_reset_timer") and self.pre_class_reset_timer.isActive():
+        if (
+            hasattr(self, "pre_class_reset_timer")
+            and self.pre_class_reset_timer.isActive()
+        ):
             self.pre_class_reset_timer.stop()
             logger.debug("课前重置定时器已停止")
 

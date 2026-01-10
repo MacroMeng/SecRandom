@@ -812,6 +812,43 @@ class FloatingNotificationWindow(CardWidget):
         if not student_labels:
             return
 
+        # 预计算窗口大小
+        total_height = 0
+        max_width = 0
+        for label in student_labels:
+            # 应用字体设置
+            if font_settings_group:
+                use_global_font = readme_settings_async(
+                    font_settings_group, "use_global_font"
+                )
+                custom_font = None
+                if use_global_font == 1:
+                    custom_font = readme_settings_async(
+                        font_settings_group, "custom_font"
+                    )
+                    if custom_font and hasattr(label, "setStyleSheet"):
+                        current_style = label.styleSheet()
+                        label.setStyleSheet(
+                            f"font-family: '{custom_font}'; {current_style}"
+                        )
+            # 计算标签大小
+            label.adjustSize()
+            size_hint = label.sizeHint()
+            total_height += size_hint.height()
+            max_width = max(max_width, size_hint.width())
+
+        # 加上布局间距和边距
+        spacing = self.content_layout.spacing()
+        margins = self.content_layout.contentsMargins()
+        total_height += spacing * (len(student_labels) - 1)
+        total_height += margins.top() + margins.bottom()
+        max_width += margins.left() + margins.right()
+
+        # 加上倒计时标签的高度
+        if self.countdown_label:
+            countdown_height = self.countdown_label.sizeHint().height()
+            total_height += countdown_height + spacing
+
         # 清除所有旧控件
         while self.content_layout.count():
             item = self.content_layout.takeAt(0)
@@ -821,33 +858,18 @@ class FloatingNotificationWindow(CardWidget):
 
         # 添加新控件
         for label in student_labels:
-            # 如果有字体设置，则应用到标签上
-            if font_settings_group:
-                # 检查是否使用全局字体
-                use_global_font = readme_settings_async(
-                    font_settings_group, "use_global_font"
-                )
-                custom_font = None
-                if use_global_font == 1:  # 不使用全局字体，使用自定义字体
-                    custom_font = readme_settings_async(
-                        font_settings_group, "custom_font"
-                    )
-                    if custom_font and hasattr(label, "setStyleSheet"):
-                        # 获取当前样式表并添加字体设置
-                        current_style = label.styleSheet()
-                        label.setStyleSheet(
-                            f"font-family: '{custom_font}'; {current_style}"
-                        )
             self.content_layout.addWidget(label)
+
+        # 设置窗口大小
+        window_width = max(300, max_width + 30)
+        window_height = min(600, total_height + 30)
+        self.setFixedSize(window_width, window_height)
 
         # 确保颜色与当前主题同步
         try:
             self._on_theme_changed()
         except Exception as e:
             logger.exception("更新内容时同步主题时出错（已忽略）: {}", e)
-
-        # 调整窗口大小以适应内容
-        self.adjustSize()
 
         # 检查窗口是否已经显示
         if self.isVisible():

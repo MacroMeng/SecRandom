@@ -1,4 +1,4 @@
-<img width="1800" height="766" alt="新版本" src="https://github.com/SECTL/SecRandom/blob/master/data/assets/icon/secrandom-version.png" />
+<img width="1800" height="766" alt="新版本" src="https://github.com/SECTL/SecRandom/blob/master/data/assets/icon/secrandom-release.png" />
 v2.0 - Koharu（小鸟游星野） release 3
 
 ## 🚀 主要更新
@@ -13,9 +13,14 @@ v2.0 - Koharu（小鸟游星野） release 3
 - 新增 **上课前解除课间禁用**，支持在上课前解除课间禁用功能
 - 新增 **Sentry错误监控**，自动收集和上报程序错误，提升问题定位效率
 - 新增 **课程设置独立侧边栏**，将课程设置从更多设置中独立出来，支持侧边栏位置配置
+- 新增 **日志查看窗口**，支持查看和管理程序日志文件
+- 新增 **开发中提示**，在所有窗口左下角显示开发版本提示(仅在开发版本下显示)
 
 ## 💡 功能优化
 
+- 优化 **更新流程**，改为下载 exe 安装程序并自动运行
+- 优化 **构建流程**，仅提供 Windows exe 安装程序
+- 优化 **更新工具**，去除 zip 相关的更新流程，仅支持 exe 安装程序
 - 优化 **退出流程**，确保资源释放完整与快速响应
 - 优化 **动画流畅性**，新增控件复用减少重绘开销
 - 优化 **闪抽动画日志**，减少不必要的日志输出
@@ -33,6 +38,7 @@ v2.0 - Koharu（小鸟游星野） release 3
 - 优化 **历史记录数据结构**，新增学科分类统计，提高查询效率
 - 优化 **数据源选择**，支持三种数据源选择：不使用数据源、使用CSES课表数据、使用ClassIsland数据源
 - 优化 **ClassIsland通知服务**，整合点名/闪抽/抽奖三个通知服务到联动设置
+- 优化 **日志配置**，默认日志等级为DEBUG，不进行压缩
 
 ## 🐛 修复问题
 

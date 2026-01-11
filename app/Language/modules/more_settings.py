@@ -178,6 +178,24 @@ behind_scenes_settings = {
     },
 }
 
+# 开发提示语言配置
+dev_hint = {
+    "ZH_CN": {
+        "hint_text": {"name": "开发中画面,不代表最终品质"},
+        "version_info": {"name": "版本信息"},
+        "date_info": {"name": "日期信息"},
+        "build_info": {"name": "构建信息"},
+        "system_info": {"name": "系统信息"},
+    },
+    "EN_US": {
+        "hint_text": {"name": "Development screen, does not represent final quality"},
+        "version_info": {"name": "Version info"},
+        "date_info": {"name": "Date info"},
+        "build_info": {"name": "Build info"},
+        "system_info": {"name": "System info"},
+    },
+}
+
 # 翻译文件信息
 translate_JSON_file = {
     "ZH_CN": {

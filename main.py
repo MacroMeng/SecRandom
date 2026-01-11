@@ -5,7 +5,7 @@ import gc
 
 import sentry_sdk
 from sentry_sdk.integrations.loguru import LoguruIntegration, LoggingLevels
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QApplication
 from loguru import logger
 
@@ -38,8 +38,9 @@ def main():
     logger.remove()
     configure_logging()
 
-    # 仅在开发环境（版本号不包含 0.0.0）下初始化 Sentry
-    if "0.0.0" not in VERSION:
+    # 仅在开发环境（版本号包含 0.0.0）下初始化 Sentry
+    if VERSION == "v0.0.0":
+
         def before_send(event, hint):
             # 如果事件中不包含异常信息（即没有堆栈），则不上传
             if "exception" not in event:
@@ -57,7 +58,6 @@ def main():
             before_send=before_send,
             release=VERSION,
             send_default_pii=True,
-            enable_logs=True,
         )
 
     wm.app_start_time = time.perf_counter()
@@ -107,6 +107,67 @@ def main():
 
     app_initializer = AppInitializer(window_manager)
     app_initializer.initialize()
+
+    # 添加开发中提示（仅开发版本）
+    if VERSION == "v0.0.0":
+        from app.view.components.dev_hint_widget import DevHintWidget
+
+        def add_dev_hint_to_window(window):
+            """为窗口添加开发中提示"""
+            if not window.isWindow() or hasattr(window, "_dev_hint_added"):
+                return
+
+            # 创建开发提示组件并添加到窗口
+            dev_hint = DevHintWidget(window)
+            dev_hint.setParent(window)
+            dev_hint.show()
+
+            # 标记窗口已添加开发提示
+            window._dev_hint_added = True
+
+            # 重写窗口的resizeEvent方法以更新提示位置
+            original_resize_event = window.resizeEvent
+
+            def new_resize_event(event, orig_event=original_resize_event, dh=dev_hint):
+                # 调用原始resize事件
+                if orig_event:
+                    orig_event(event)
+
+                # 更新开发提示的位置
+                dh.update_position()
+
+            window.resizeEvent = new_resize_event
+
+            # 初始定位
+            dev_hint.update_position()
+
+        # 为现有窗口添加开发提示
+        def add_dev_hints_to_existing_windows():
+            for widget in QApplication.topLevelWidgets():
+                add_dev_hint_to_window(widget)
+
+        # 使用定时器确保在窗口完全创建后再添加提示
+        QTimer.singleShot(100, add_dev_hints_to_existing_windows)
+
+        # 监听新窗口的创建
+        original_notify = app.notify
+
+        def new_notify(receiver, event):
+            result = original_notify(receiver, event)
+
+            # 当新窗口显示时，添加开发提示
+            if (
+                hasattr(event, "type")
+                and event.type() == event.Type.Show
+                and hasattr(receiver, "isWindow")
+                and receiver.isWindow()
+                and not hasattr(receiver, "_dev_hint_added")
+            ):
+                add_dev_hint_to_window(receiver)
+
+            return result
+
+        app.notify = new_notify
 
     try:
         app.exec()

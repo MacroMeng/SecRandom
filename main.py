@@ -68,6 +68,9 @@ def main():
 
     shared_memory, is_first_instance = check_single_instance()
 
+    # 防止原来的进程没完全结束
+    time.sleep(0.5)
+
     if not is_first_instance:
         if len(sys.argv) > 1 and any(
             arg.startswith("secrandom://") for arg in sys.argv

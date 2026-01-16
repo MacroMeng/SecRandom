@@ -281,9 +281,6 @@ DEV_HINT_DELAY_MS = 100  # 开发提示延迟时间（毫秒）
 UPDATE_CHECK_THREAD_TIMEOUT_MS = 2000  # 更新检查线程超时时间（毫秒）
 PROCESS_EXIT_WAIT_SECONDS = 1  # 进程退出等待时间（秒）
 
-# -------------------- Windows 进程配置 --------------------
-CREATE_NO_WINDOW = 0x08000000  # Windows 进程创建标志，不创建新窗口
-
 
 # ==================================================
 # 全局变量

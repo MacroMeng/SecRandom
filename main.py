@@ -2,7 +2,6 @@ import os
 import sys
 import time
 import gc
-import subprocess
 
 import sentry_sdk
 from sentry_sdk.integrations.loguru import LoguruIntegration, LoggingLevels
@@ -23,7 +22,6 @@ from app.tools.variable import (
     DEV_HINT_DELAY_MS,
     UPDATE_CHECK_THREAD_TIMEOUT_MS,
     PROCESS_EXIT_WAIT_SECONDS,
-    CREATE_NO_WINDOW,
 )
 from app.core.single_instance import (
     check_single_instance,
@@ -315,24 +313,11 @@ def restart_application(program_dir):
         os._exit(1)
 
     try:
-        if sys.platform.startswith("win"):
-            startup_info = subprocess.STARTUPINFO()
-            startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            subprocess.Popen(
-                [executable] + filtered_args,
-                cwd=program_dir,
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW,
-                startupinfo=startup_info,
-            )
-        else:
-            subprocess.Popen(
-                [executable] + filtered_args,
-                cwd=program_dir,
-                start_new_session=True,
-            )
-        logger.info("新的应用程序实例已启动")
+        os.chdir(program_dir)
+        os.execl(executable, executable, *filtered_args)
     except Exception as e:
         logger.exception(f"重启应用程序失败: {e}")
+        os._exit(1)
 
 
 def handle_exit(

@@ -2,9 +2,7 @@
 # 导入库
 # ==================================================
 import os
-import sys
 import shutil
-import subprocess
 
 from loguru import logger
 from PySide6.QtWidgets import QApplication, QWidget
@@ -14,8 +12,15 @@ from qfluentwidgets import FluentWindow, NavigationItemPosition
 
 from app.common.IPC_URL.csharp_ipc_handler import CSharpIPCHandler
 from app.common.shortcut import ShortcutManager
-from app.tools.variable import MINIMUM_WINDOW_SIZE, APP_INIT_DELAY, EXIT_CODE_RESTART
-from app.tools.path_utils import get_data_path, get_app_root
+from app.tools.variable import (
+    MINIMUM_WINDOW_SIZE,
+    APP_INIT_DELAY,
+    EXIT_CODE_RESTART,
+    PRE_CLASS_RESET_INTERVAL_MS,
+    RESIZE_TIMER_DELAY_MS,
+    MAXIMIZE_RESTORE_DELAY_MS,
+)
+from app.tools.path_utils import get_data_path
 from app.tools.personalised import get_theme_icon
 from app.tools.settings_access import get_safe_font_size
 from app.Language.obtain_language import (
@@ -51,51 +56,58 @@ class MainWindow(FluentWindow):
 
     def __init__(self, float_window: LevitationWindow, url_handler_instance=None):
         super().__init__()
-        # 设置窗口对象名称，方便其他组件查找
         self.setObjectName("MainWindow")
 
-        # 保存URL处理器实例引用
         self.url_handler_instance = url_handler_instance
 
+        self._initialize_variables()
+        self._setup_timers()
+        self._setup_shortcuts()
+        self._setup_window_properties()
+        self._setup_url_handler()
+        self._setup_tray()
+        self._setup_float_window(float_window)
+
+        QTimer.singleShot(APP_INIT_DELAY, lambda: (self.createSubInterface()))
+
+    def _initialize_variables(self):
+        """初始化实例变量"""
         self.roll_call_page = None
         self.settingsInterface = None
-
-        self.roll_call_page = None
-        self.settingsInterface = None
-
-        # 窗口是否真正显示过标志
         self._has_been_shown = False
+        self.pre_class_reset_performed = False
 
-        self.shortcut_manager = ShortcutManager(self)
-        self._connect_shortcut_signals()
-        self.shortcut_manager._init_shortcuts()
-        self._setup_shortcut_settings_listener()
-
-        # resize_timer的初始化
+    def _setup_timers(self):
+        """设置定时器"""
         self.resize_timer = QTimer(self)
         self.resize_timer.setSingleShot(True)
         self.resize_timer.timeout.connect(
             lambda: self.save_window_size(self.width(), self.height())
         )
 
-        # 课前重置相关变量
-        self.pre_class_reset_performed = False
         self.pre_class_reset_timer = QTimer(self)
         self.pre_class_reset_timer.timeout.connect(self._check_pre_class_reset)
 
-        # 初始化课前重置功能
         QTimer.singleShot(1000, self._init_pre_class_reset)
 
-        # 设置窗口属性
+    def _setup_shortcuts(self):
+        """设置快捷键管理器"""
+        self.shortcut_manager = ShortcutManager(self)
+        self._connect_shortcut_signals()
+        self.shortcut_manager._init_shortcuts()
+        self._setup_shortcut_settings_listener()
+
+    def _setup_window_properties(self):
+        """设置窗口属性"""
         self.setMinimumSize(MINIMUM_WINDOW_SIZE[0], MINIMUM_WINDOW_SIZE[1])
         self.setWindowTitle("SecRandom")
         self.setWindowIcon(
             QIcon(str(get_data_path("assets/icon", "secrandom-icon-paper.png")))
         )
-
         self._position_window()
 
-        # 初始化URL命令处理器
+    def _setup_url_handler(self):
+        """设置URL处理器"""
         self.url_command_handler = URLCommandHandler(self)
         self.url_command_handler.showMainPageRequested.connect(
             self._handle_main_page_requested
@@ -107,7 +119,8 @@ class MainWindow(FluentWindow):
             self._handle_tray_action_requested
         )
 
-        # 导入并创建托盘图标
+    def _setup_tray(self):
+        """设置系统托盘"""
         self.tray_icon = Tray(self)
         self.tray_icon.showSettingsRequested.connect(self.showSettingsRequested.emit)
         self.tray_icon.showSettingsRequestedAbout.connect(
@@ -121,6 +134,8 @@ class MainWindow(FluentWindow):
         )
         self.tray_icon.show_tray_icon()
 
+    def _setup_float_window(self, float_window: LevitationWindow):
+        """设置悬浮窗"""
         self.float_window = float_window
         self.showFloatWindowRequested.connect(self._toggle_float_window)
         self.showMainPageRequested.connect(self._handle_main_page_requested)
@@ -133,30 +148,31 @@ class MainWindow(FluentWindow):
             lambda: self._show_and_switch_to(self.lottery_page)
         )
 
-        QTimer.singleShot(APP_INIT_DELAY, lambda: (self.createSubInterface()))
+    # ==================================================
+    # IPC 服务器管理
+    # ==================================================
 
     def restart_ipc_server(self, new_port: int):
         """重启IPC服务器
 
         Args:
             new_port: 新的端口号
+
+        Returns:
+            bool: 是否重启成功
         """
         logger.info(f"正在请求重启IPC服务器，新端口: {new_port}")
 
-        # 使用保存的url_handler实例
         if self.url_handler_instance and hasattr(
             self.url_handler_instance, "url_ipc_handler"
         ):
             url_handler = self.url_handler_instance
 
             if url_handler and hasattr(url_handler, "url_ipc_handler"):
-                # 停止当前的IPC服务器
                 url_handler.url_ipc_handler.stop_ipc_server()
                 logger.info("旧IPC服务器已停止")
 
-                # 重新启动IPC服务器，使用新端口
                 if url_handler.url_ipc_handler.start_ipc_server(new_port):
-                    # 重新注册消息处理器
                     url_handler.url_ipc_handler.register_message_handler(
                         "url", url_handler._handle_ipc_url_message
                     )
@@ -172,10 +188,13 @@ class MainWindow(FluentWindow):
             logger.exception("无法获取url_handler_instance")
             return False
 
+    # ==================================================
+    # 窗口定位与大小管理
+    # ==================================================
+
     def _position_window(self):
         """窗口定位
         根据屏幕尺寸和用户设置自动计算最佳位置"""
-        # 临时禁用 resize_timer，避免在初始化时保存默认窗口大小
         self.resize_timer.stop()
 
         is_maximized = readme_settings_async("window", "is_maximized")
@@ -204,18 +223,132 @@ class MainWindow(FluentWindow):
 
         self.move(target_x, target_y)
 
-    def _apply_window_visibility_settings(self):
-        """应用窗口显示设置
-        根据用户保存的设置决定窗口是否显示"""
-        try:
-            self.show()
-        except Exception as e:
-            logger.exception(f"加载窗口显示设置失败: {e}")
+    def save_window_size(self, width, height):
+        """保存窗口大小
+        记录当前窗口尺寸，下次启动时自动恢复
+
+        Args:
+            width: 窗口宽度
+            height: 窗口高度
+        """
+        if not self._has_been_shown:
+            return
+
+        auto_save_enabled = readme_settings_async(
+            "basic_settings", "auto_save_window_size"
+        )
+
+        if auto_save_enabled:
+            if not self.isMaximized():
+                if self.isVisible():
+                    update_settings("window", "height", height)
+                    update_settings("window", "width", width)
+
+    def toggle_window(self):
+        """切换窗口显示状态
+        在显示和隐藏状态之间切换窗口，切换时自动激活点名界面"""
+        if self.isVisible():
+            self.hide()
+            if self.isMinimized():
+                self.showNormal()
+                self.activateWindow()
+                self.raise_()
+        else:
+            if self.isMinimized():
+                self.showNormal()
+                self.activateWindow()
+                self.raise_()
+            else:
+                self.show()
+                self.activateWindow()
+                self.raise_()
+
+    # ==================================================
+    # 窗口事件处理
+    # ==================================================
+
+    def closeEvent(self, event):
+        """窗口关闭事件处理
+        根据"后台驻留"设置决定是否真正关闭窗口
+
+        Args:
+            event: 关闭事件对象
+        """
+        resident = readme_settings_async("basic_settings", "background_resident")
+        if resident:
+            self.hide()
+            event.ignore()
+
+            is_maximized = self.isMaximized()
+            update_settings("window", "is_maximized", is_maximized)
+            if not is_maximized:
+                self.save_window_size(self.width(), self.height())
+        else:
+            event.accept()
+
+    def showEvent(self, event):
+        """窗口显示事件处理
+        标记窗口已经显示过
+
+        Args:
+            event: 显示事件对象
+        """
+        self._has_been_shown = True
+        super().showEvent(event)
+
+    def resizeEvent(self, event):
+        """窗口大小变化事件处理
+        检测窗口大小变化，启动尺寸记录倒计时，避免频繁IO操作
+
+        Args:
+            event: 大小变化事件对象
+        """
+        self.resize_timer.start(RESIZE_TIMER_DELAY_MS)
+        super().resizeEvent(event)
+
+    def changeEvent(self, event):
+        """窗口状态变化事件处理
+        检测窗口最大化/恢复状态变化，保存正确的窗口大小
+
+        Args:
+            event: 状态变化事件对象
+        """
+        if event.type() == QEvent.Type.WindowStateChange:
+            is_currently_maximized = self.isMaximized()
+            was_maximized = readme_settings_async("window", "is_maximized")
+
+            if is_currently_maximized != was_maximized:
+                update_settings("window", "is_maximized", is_currently_maximized)
+
+                if is_currently_maximized:
+                    normal_geometry = self.normalGeometry()
+                    update_settings(
+                        "window", "pre_maximized_width", normal_geometry.width()
+                    )
+                    update_settings(
+                        "window", "pre_maximized_height", normal_geometry.height()
+                    )
+                else:
+                    pre_maximized_width = readme_settings_async(
+                        "window", "pre_maximized_width"
+                    )
+                    pre_maximized_height = readme_settings_async(
+                        "window", "pre_maximized_height"
+                    )
+                    QTimer.singleShot(
+                        MAXIMIZE_RESTORE_DELAY_MS,
+                        lambda: self.resize(pre_maximized_width, pre_maximized_height),
+                    )
+
+        super().changeEvent(event)
+
+    # ==================================================
+    # 界面创建与导航
+    # ==================================================
 
     def createSubInterface(self):
         """创建子界面
         搭建子界面导航系统"""
-
         self.roll_call_page = roll_call_page(self)
         self.roll_call_page.setObjectName("roll_call_page")
 
@@ -228,7 +361,6 @@ class MainWindow(FluentWindow):
         self.settingsInterface = QWidget(self)
         self.settingsInterface.setObjectName("settingsInterface")
 
-        # 为所有子页面安装事件过滤器，点击时自动折叠导航栏
         for page in [self.roll_call_page, self.lottery_page, self.history_page]:
             page.installEventFilter(self)
 
@@ -237,11 +369,16 @@ class MainWindow(FluentWindow):
     def initNavigation(self):
         """初始化导航系统
         根据用户设置构建个性化菜单导航"""
-        # 获取点名侧边栏位置设置
+        self._add_roll_call_navigation()
+        self._add_lottery_navigation()
+        self._add_history_navigation()
+        self._add_settings_navigation()
+
+    def _add_roll_call_navigation(self):
+        """添加点名页面导航项"""
         roll_call_sidebar_pos = readme_settings_async(
             "sidebar_management_window", "roll_call_sidebar_position"
         )
-        # 只有当设置不为"不显示"（值为2）时才添加到导航栏
         if roll_call_sidebar_pos is None or roll_call_sidebar_pos != 2:
             roll_call_position = (
                 NavigationItemPosition.TOP
@@ -256,11 +393,11 @@ class MainWindow(FluentWindow):
                 position=roll_call_position,
             )
 
-        # 获取奖池侧边栏位置设置
+    def _add_lottery_navigation(self):
+        """添加抽奖页面导航项"""
         lottery_sidebar_pos = readme_settings_async(
             "sidebar_management_window", "lottery_sidebar_position"
         )
-        # 只有当设置不为"不显示"（值为2）时才添加到导航栏
         if lottery_sidebar_pos is None or lottery_sidebar_pos != 2:
             lottery_position = (
                 NavigationItemPosition.TOP
@@ -275,11 +412,11 @@ class MainWindow(FluentWindow):
                 position=lottery_position,
             )
 
-        # 获取历史记录侧边栏位置设置
+    def _add_history_navigation(self):
+        """添加历史记录页面导航项"""
         history_sidebar_pos = readme_settings_async(
             "sidebar_management_window", "main_window_history"
         )
-        # 只有当设置不为"不显示"（值为2）时才添加到导航栏
         if history_sidebar_pos is None or history_sidebar_pos != 2:
             history_position = (
                 NavigationItemPosition.TOP
@@ -294,11 +431,11 @@ class MainWindow(FluentWindow):
                 position=history_position,
             )
 
-        # 获取设置图标位置设置
+    def _add_settings_navigation(self):
+        """添加设置页面导航项"""
         settings_icon_pos = readme_settings_async(
             "sidebar_management_window", "settings_icon"
         )
-        # 只有当设置不为"不显示"（值为2）时才添加到导航栏
         if settings_icon_pos is None or settings_icon_pos != 2:
             settings_position = (
                 NavigationItemPosition.BOTTOM
@@ -312,17 +449,34 @@ class MainWindow(FluentWindow):
                 get_content_name_async("settings", "title"),
                 position=settings_position,
             )
-            # 直接打开设置界面（预览模式），无需验证
             settings_item.clicked.connect(
                 lambda: self.showSettingsRequested.emit("basicSettingsInterface")
             )
             settings_item.clicked.connect(lambda: self.switchTo(self.roll_call_page))
 
+    # ==================================================
+    # 窗口切换与显示
+    # ==================================================
+
     def _toggle_float_window(self):
+        """切换悬浮窗显示状态"""
         if self.float_window.isVisible():
             self.float_window.hide()
         else:
             self.float_window.show()
+
+    def _show_and_switch_to(self, page):
+        """显示并切换到指定页面
+
+        Args:
+            page: 要切换到的页面对象
+        """
+        if self.isMinimized():
+            self.showNormal()
+        self.show()
+        self.activateWindow()
+        self.raise_()
+        self.switchTo(page)
 
     def _handle_main_page_requested(self, page_name: str):
         """处理主页面请求
@@ -334,7 +488,6 @@ class MainWindow(FluentWindow):
             f"MainWindow._handle_main_page_requested: 收到主页面请求: {page_name}"
         )
         if page_name == "main_window":
-            # 如果请求的是主窗口，直接显示主窗口
             logger.debug("MainWindow._handle_main_page_requested: 显示主窗口")
             self.show()
             self.raise_()
@@ -361,7 +514,6 @@ class MainWindow(FluentWindow):
         if action == "toggle_main_window":
             self.toggle_window()
         elif action == "settings":
-            # 直接打开设置界面（预览模式），无需验证
             self.showSettingsRequested.emit("basicSettingsInterface")
         elif action == "float":
             self._toggle_float_window()
@@ -372,324 +524,9 @@ class MainWindow(FluentWindow):
         else:
             logger.warning(f"未知的托盘操作: {action}")
 
-    def _show_and_switch_to(self, page):
-        if self.isMinimized():
-            self.showNormal()
-        self.show()
-        self.activateWindow()
-        self.raise_()
-        self.switchTo(page)
-
-    def _handle_quick_draw(self):
-        """处理闪抽请求
-        点击悬浮窗中的闪抽按钮时调用
-        """
-        logger.debug("_handle_quick_draw: 收到闪抽请求")
-
-        # 确保roll_call_page已经创建
-        if not hasattr(self, "roll_call_page") or not self.roll_call_page:
-            logger.exception("_handle_quick_draw: roll_call_page未创建")
-            return
-
-        logger.debug("_handle_quick_draw: roll_call_page已创建")
-
-        # 确保roll_call_widget已经创建
-        roll_call_page = self.roll_call_page
-        roll_call_widget = None
-
-        # 尝试获取roll_call_widget
-        if (
-            hasattr(roll_call_page, "roll_call_widget")
-            and roll_call_page.roll_call_widget
-        ):
-            roll_call_widget = roll_call_page.roll_call_widget
-            logger.debug("_handle_quick_draw: roll_call_widget已创建")
-        else:
-            # 尝试直接获取contentWidget
-            if (
-                hasattr(roll_call_page, "contentWidget")
-                and roll_call_page.contentWidget
-            ):
-                roll_call_widget = roll_call_page.contentWidget
-                logger.debug("_handle_quick_draw: 直接获取contentWidget成功")
-            else:
-                # 尝试创建contentWidget
-                logger.debug("_handle_quick_draw: 尝试创建contentWidget")
-                roll_call_page.create_content()
-                QApplication.processEvents()
-
-                # 再次尝试获取
-                if (
-                    hasattr(roll_call_page, "roll_call_widget")
-                    and roll_call_page.roll_call_widget
-                ):
-                    roll_call_widget = roll_call_page.roll_call_widget
-                    logger.debug(
-                        "_handle_quick_draw: 创建contentWidget后获取roll_call_widget成功"
-                    )
-                elif (
-                    hasattr(roll_call_page, "contentWidget")
-                    and roll_call_page.contentWidget
-                ):
-                    roll_call_widget = roll_call_page.contentWidget
-                    logger.debug(
-                        "_handle_quick_draw: 创建contentWidget后获取contentWidget成功"
-                    )
-                else:
-                    logger.exception(
-                        "_handle_quick_draw: 无法创建或获取roll_call_widget"
-                    )
-                    return
-
-        logger.debug("_handle_quick_draw: 成功获取roll_call_widget")
-
-        # 保存当前设置
-        original_count = roll_call_widget.current_count
-        original_list_index = roll_call_widget.list_combobox.currentIndex()
-        original_range_index = roll_call_widget.range_combobox.currentIndex()
-        original_gender_index = roll_call_widget.gender_combobox.currentIndex()
-
-        try:
-            # 设置抽取数量为1
-            roll_call_widget.current_count = 1
-            roll_call_widget.count_label.setText("1")
-
-            # 确保所有下拉框都有内容且选择第一项
-            if roll_call_widget.list_combobox.count() > 0:
-                roll_call_widget.list_combobox.setCurrentIndex(0)
-                # 触发班级变化事件，更新相关数据
-                roll_call_widget.on_class_changed()
-
-            if roll_call_widget.range_combobox.count() > 0:
-                roll_call_widget.range_combobox.setCurrentIndex(0)
-
-            if roll_call_widget.gender_combobox.count() > 0:
-                roll_call_widget.gender_combobox.setCurrentIndex(0)
-
-            # 触发筛选变化事件，更新相关数据
-            roll_call_widget.on_filter_changed()
-
-            # 确保所有数据已更新
-            QApplication.processEvents()
-
-            # 获取闪抽专用设置
-            quick_draw_settings = {
-                "draw_mode": readme_settings_async("quick_draw_settings", "draw_mode"),
-                "half_repeat": readme_settings_async(
-                    "quick_draw_settings", "half_repeat"
-                ),
-                "font_size": get_safe_font_size("quick_draw_settings", "font_size"),
-                "display_format": readme_settings_async(
-                    "quick_draw_settings", "display_format"
-                ),
-                "animation": readme_settings_async("quick_draw_settings", "animation"),
-                "animation_interval": readme_settings_async(
-                    "quick_draw_settings", "animation_interval"
-                ),
-                "autoplay_count": readme_settings_async(
-                    "quick_draw_settings", "autoplay_count"
-                ),
-                "animation_color_theme": readme_settings_async(
-                    "quick_draw_settings", "animation_color_theme"
-                ),
-                "student_image": readme_settings_async(
-                    "quick_draw_settings", "student_image"
-                ),
-                "show_random": readme_settings_async(
-                    "quick_draw_settings", "show_random"
-                ),
-                "default_class": readme_settings_async(
-                    "quick_draw_settings", "default_class"
-                ),
-            }
-
-            # 创建闪抽动画实例
-            quick_draw_animation = QuickDrawAnimation(roll_call_widget)
-
-            # 执行闪抽动画
-            quick_draw_animation.execute_quick_draw(quick_draw_settings)
-
-        finally:
-            # 恢复原始设置
-            roll_call_widget.current_count = original_count
-            roll_call_widget.count_label.setText(str(original_count))
-
-            # 恢复原始下拉框索引
-            if roll_call_widget.list_combobox.count() > 0:
-                roll_call_widget.list_combobox.setCurrentIndex(original_list_index)
-                # 触发班级变化事件，更新相关数据
-                roll_call_widget.on_class_changed()
-
-            if roll_call_widget.range_combobox.count() > 0:
-                roll_call_widget.range_combobox.setCurrentIndex(original_range_index)
-
-            if roll_call_widget.gender_combobox.count() > 0:
-                roll_call_widget.gender_combobox.setCurrentIndex(original_gender_index)
-
-            # 触发筛选变化事件，更新相关数据
-            roll_call_widget.on_filter_changed()
-
-            # 确保所有数据已更新
-            QApplication.processEvents()
-
-    def closeEvent(self, event):
-        """窗口关闭事件处理
-        根据"后台驻留"设置决定是否真正关闭窗口"""
-        resident = readme_settings_async("basic_settings", "background_resident")
-        if resident:
-            self.hide()
-            event.ignore()
-
-            # 保存当前窗口状态
-            is_maximized = self.isMaximized()
-            update_settings("window", "is_maximized", is_maximized)
-            if is_maximized:
-                pass
-            else:
-                self.save_window_size(self.width(), self.height())
-        else:
-            event.accept()
-
-    def showEvent(self, event):
-        """窗口显示事件处理
-        标记窗口已经显示过"""
-        self._has_been_shown = True
-        super().showEvent(event)
-
-    def resizeEvent(self, event):
-        """窗口大小变化事件处理
-        检测窗口大小变化，启动尺寸记录倒计时，避免频繁IO操作"""
-        # 每次窗口大小变化时重新启动定时器，确保在窗口大小稳定后才保存
-        self.resize_timer.start(500)
-        super().resizeEvent(event)
-
-    def changeEvent(self, event):
-        """窗口状态变化事件处理
-        检测窗口最大化/恢复状态变化，保存正确的窗口大小"""
-        # 检查是否是窗口状态变化
-        if event.type() == QEvent.Type.WindowStateChange:
-            is_currently_maximized = self.isMaximized()
-            was_maximized = readme_settings_async("window", "is_maximized")
-
-            # 如果最大化状态发生变化
-            if is_currently_maximized != was_maximized:
-                # 更新最大化状态
-                update_settings("window", "is_maximized", is_currently_maximized)
-
-                # 如果进入最大化，保存当前窗口大小作为最大化前的大小
-                if is_currently_maximized:
-                    # 获取正常状态下的窗口大小
-                    normal_geometry = self.normalGeometry()
-                    update_settings(
-                        "window", "pre_maximized_width", normal_geometry.width()
-                    )
-                    update_settings(
-                        "window", "pre_maximized_height", normal_geometry.height()
-                    )
-                # 如果退出最大化，恢复到最大化前的大小
-                else:
-                    pre_maximized_width = readme_settings_async(
-                        "window", "pre_maximized_width"
-                    )
-                    pre_maximized_height = readme_settings_async(
-                        "window", "pre_maximized_height"
-                    )
-                    # 延迟执行，确保在最大化状态完全退出后再调整大小
-                    QTimer.singleShot(
-                        100,
-                        lambda: self.resize(pre_maximized_width, pre_maximized_height),
-                    )
-
-        super().changeEvent(event)
-
-    def save_window_size(self, width, height):
-        """保存窗口大小
-        记录当前窗口尺寸，下次启动时自动恢复"""
-        # 如果窗口从未真正显示过，不保存窗口大小
-        if not self._has_been_shown:
-            return
-
-        # 检查是否启用了自动保存窗口大小功能
-        auto_save_enabled = readme_settings_async(
-            "basic_settings", "auto_save_window_size"
-        )
-
-        if auto_save_enabled:
-            # 只有在非最大化状态下才保存窗口大小
-            if not self.isMaximized():
-                # 只有在窗口可见时才保存窗口大小
-                if self.isVisible():
-                    update_settings("window", "height", height)
-                    update_settings("window", "width", width)
-
-    def toggle_window(self):
-        """切换窗口显示状态
-        在显示和隐藏状态之间切换窗口，切换时自动激活点名界面"""
-        if self.isVisible():
-            self.hide()
-            if self.isMinimized():
-                self.showNormal()
-                self.activateWindow()
-                self.raise_()
-        else:
-            if self.isMinimized():
-                self.showNormal()
-                self.activateWindow()
-                self.raise_()
-            else:
-                self.show()
-                self.activateWindow()
-                self.raise_()
-
-    def close_window_secrandom(self):
-        """关闭窗口
-        执行安全验证后关闭程序，释放所有资源"""
-        logger.info("程序正在退出 (close_window_secrandom)...")
-
-        # 停止课前重置定时器
-        if (
-            hasattr(self, "pre_class_reset_timer")
-            and self.pre_class_reset_timer.isActive()
-        ):
-            self.pre_class_reset_timer.stop()
-            logger.debug("课前重置定时器已停止")
-
-        # 快速清理快捷键
-        self.cleanup_shortcuts()
-        logger.debug("快捷键已清理")
-
-        # 停止 IPC 客户端
-        try:
-            CSharpIPCHandler.instance().stop_ipc_client()
-            logger.debug("C# IPC 停止请求已发出")
-        except Exception as e:
-            logger.exception(f"停止 IPC 客户端失败: {e}")
-
-        # 显式关闭所有顶层窗口（包括悬浮窗、设置窗口等）
-        try:
-            top_level_widgets = QApplication.topLevelWidgets()
-            logger.debug(f"正在关闭所有顶层窗口，共 {len(top_level_widgets)} 个")
-            for widget in top_level_widgets:
-                if widget != self:
-                    logger.debug(f"正在关闭窗口: {widget.objectName() or widget}")
-                    widget.close()
-                    if hasattr(widget, "hide"):
-                        widget.hide()
-        except Exception as e:
-            logger.exception(f"关闭其他窗口时出错: {e}")
-
-        # 最后关闭自己
-        logger.debug("正在关闭主窗口...")
-        self.close()
-
-        # 请求退出应用程序
-        logger.info("已发出 QApplication.quit() 请求")
-        QApplication.quit()
-
-    def cleanup_shortcuts(self):
-        """清理快捷键"""
-        if hasattr(self, "shortcut_manager"):
-            self.shortcut_manager.cleanup()
+    # ==================================================
+    # 快捷键管理
+    # ==================================================
 
     def _connect_shortcut_signals(self):
         """连接快捷键管理器的信号"""
@@ -802,7 +639,13 @@ class MainWindow(FluentWindow):
     def _on_shortcut_settings_changed(
         self, first_level_key: str, second_level_key: str, value
     ):
-        """当设置发生变化时的处理函数"""
+        """当设置发生变化时的处理函数
+
+        Args:
+            first_level_key: 第一级设置键
+            second_level_key: 第二级设置键
+            value: 新的设置值
+        """
         if first_level_key == "shortcut_settings":
             if second_level_key == "enable_shortcut":
                 logger.debug(f"快捷键启用状态变化: {value}")
@@ -813,54 +656,200 @@ class MainWindow(FluentWindow):
                 logger.debug(f"快捷键更新: {config_key} = {shortcut_str}")
                 self.shortcut_manager.update_shortcut(config_key, shortcut_str)
 
-    def restart_app(self):
-        """重启应用程序（跨平台支持）
-        执行安全验证后重启程序，清理所有资源"""
-        logger.info("正在发起重启请求...")
+    def cleanup_shortcuts(self):
+        """清理快捷键"""
+        if hasattr(self, "shortcut_manager"):
+            self.shortcut_manager.cleanup()
 
-        # 停止课前重置定时器
-        if self.pre_class_reset_timer.isActive():
-            self.pre_class_reset_timer.stop()
+    # ==================================================
+    # 闪抽功能
+    # ==================================================
 
-        # 快速清理快捷键
-        self.cleanup_shortcuts()
+    def _handle_quick_draw(self):
+        """处理闪抽请求
+        点击悬浮窗中的闪抽按钮时调用"""
+        logger.debug("_handle_quick_draw: 收到闪抽请求")
 
-        # 请求重启
-        QApplication.exit(EXIT_CODE_RESTART)
+        if not hasattr(self, "roll_call_page") or not self.roll_call_page:
+            logger.exception("_handle_quick_draw: roll_call_page未创建")
+            return
+
+        logger.debug("_handle_quick_draw: roll_call_page已创建")
+
+        roll_call_page = self.roll_call_page
+        roll_call_widget = self._get_roll_call_widget(roll_call_page)
+
+        if not roll_call_widget:
+            logger.exception("_handle_quick_draw: 无法获取roll_call_widget")
+            return
+
+        logger.debug("_handle_quick_draw: 成功获取roll_call_widget")
+
+        original_settings = self._save_original_settings(roll_call_widget)
+
+        try:
+            self._apply_quick_draw_settings(roll_call_widget)
+            self._execute_quick_draw_animation(roll_call_widget)
+        finally:
+            self._restore_original_settings(roll_call_widget, original_settings)
+
+    def _get_roll_call_widget(self, roll_call_page):
+        """获取点名页面组件
+
+        Args:
+            roll_call_page: 点名页面对象
+
+        Returns:
+            点名组件对象或None
+        """
+        if (
+            hasattr(roll_call_page, "roll_call_widget")
+            and roll_call_page.roll_call_widget
+        ):
+            return roll_call_page.roll_call_widget
+
+        if hasattr(roll_call_page, "contentWidget") and roll_call_page.contentWidget:
+            return roll_call_page.contentWidget
+
+        roll_call_page.create_content()
+        QApplication.processEvents()
+
+        if (
+            hasattr(roll_call_page, "roll_call_widget")
+            and roll_call_page.roll_call_widget
+        ):
+            return roll_call_page.roll_call_widget
+
+        if hasattr(roll_call_page, "contentWidget") and roll_call_page.contentWidget:
+            return roll_call_page.contentWidget
+
+        return None
+
+    def _save_original_settings(self, roll_call_widget):
+        """保存原始设置
+
+        Args:
+            roll_call_widget: 点名组件对象
+
+        Returns:
+            dict: 原始设置字典
+        """
+        return {
+            "count": roll_call_widget.current_count,
+            "list_index": roll_call_widget.list_combobox.currentIndex(),
+            "range_index": roll_call_widget.range_combobox.currentIndex(),
+            "gender_index": roll_call_widget.gender_combobox.currentIndex(),
+        }
+
+    def _apply_quick_draw_settings(self, roll_call_widget):
+        """应用闪抽设置
+
+        Args:
+            roll_call_widget: 点名组件对象
+        """
+        roll_call_widget.current_count = 1
+        roll_call_widget.count_label.setText("1")
+
+        if roll_call_widget.list_combobox.count() > 0:
+            roll_call_widget.list_combobox.setCurrentIndex(0)
+            roll_call_widget.on_class_changed()
+
+        if roll_call_widget.range_combobox.count() > 0:
+            roll_call_widget.range_combobox.setCurrentIndex(0)
+
+        if roll_call_widget.gender_combobox.count() > 0:
+            roll_call_widget.gender_combobox.setCurrentIndex(0)
+
+        roll_call_widget.on_filter_changed()
+        QApplication.processEvents()
+
+    def _execute_quick_draw_animation(self, roll_call_widget):
+        """执行闪抽动画
+
+        Args:
+            roll_call_widget: 点名组件对象
+        """
+        quick_draw_settings = {
+            "draw_mode": readme_settings_async("quick_draw_settings", "draw_mode"),
+            "half_repeat": readme_settings_async("quick_draw_settings", "half_repeat"),
+            "font_size": get_safe_font_size("quick_draw_settings", "font_size"),
+            "display_format": readme_settings_async(
+                "quick_draw_settings", "display_format"
+            ),
+            "animation": readme_settings_async("quick_draw_settings", "animation"),
+            "animation_interval": readme_settings_async(
+                "quick_draw_settings", "animation_interval"
+            ),
+            "autoplay_count": readme_settings_async(
+                "quick_draw_settings", "autoplay_count"
+            ),
+            "animation_color_theme": readme_settings_async(
+                "quick_draw_settings", "animation_color_theme"
+            ),
+            "student_image": readme_settings_async(
+                "quick_draw_settings", "student_image"
+            ),
+            "show_random": readme_settings_async("quick_draw_settings", "show_random"),
+            "default_class": readme_settings_async(
+                "quick_draw_settings", "default_class"
+            ),
+        }
+
+        quick_draw_animation = QuickDrawAnimation(roll_call_widget)
+        quick_draw_animation.execute_quick_draw(quick_draw_settings)
+
+    def _restore_original_settings(self, roll_call_widget, original_settings):
+        """恢复原始设置
+
+        Args:
+            roll_call_widget: 点名组件对象
+            original_settings: 原始设置字典
+        """
+        roll_call_widget.current_count = original_settings["count"]
+        roll_call_widget.count_label.setText(str(original_settings["count"]))
+
+        if roll_call_widget.list_combobox.count() > 0:
+            roll_call_widget.list_combobox.setCurrentIndex(
+                original_settings["list_index"]
+            )
+            roll_call_widget.on_class_changed()
+
+        if roll_call_widget.range_combobox.count() > 0:
+            roll_call_widget.range_combobox.setCurrentIndex(
+                original_settings["range_index"]
+            )
+
+        if roll_call_widget.gender_combobox.count() > 0:
+            roll_call_widget.gender_combobox.setCurrentIndex(
+                original_settings["gender_index"]
+            )
+
+        roll_call_widget.on_filter_changed()
+        QApplication.processEvents()
+
+    # ==================================================
+    # 课前重置功能
+    # ==================================================
 
     def _check_pre_class_reset(self):
         """每秒检测课前重置条件"""
         try:
-            # 如果已经执行过重置，不再重复执行
             if self.pre_class_reset_performed:
                 self.pre_class_reset_timer.stop()
                 return
 
-            # 获取课前重置时间（秒）
             pre_class_reset_time = readme_settings_async(
                 "linkage_settings", "pre_class_reset_time", 120
             )
 
-            # 检查数据源选择
             data_source = readme_settings_async("linkage_settings", "data_source", 0)
 
-            # 根据数据源选择不同的方式获取距离上课时间
-            if data_source == 2:
-                # 使用 ClassIsland 获取距离上课剩余时间（秒）
-                on_class_left_time = (
-                    CSharpIPCHandler.instance().get_on_class_left_time()
-                )
-            elif data_source == 1:
-                # 使用 CSES 数据计算距离下一节课的时间
-                from app.common.extraction.extract import _get_seconds_to_next_class
+            on_class_left_time = self._get_on_class_left_time(data_source)
 
-                on_class_left_time = _get_seconds_to_next_class()
-            else:
-                # 不使用数据源，不进行课前重置
+            if on_class_left_time is None:
                 self.pre_class_reset_timer.stop()
                 return
 
-            # 检查是否在上课前指定时间范围内
             if on_class_left_time > 0 and on_class_left_time <= pre_class_reset_time:
                 logger.info(f"距离上课还有 {on_class_left_time} 秒，执行课前重置")
                 self._perform_pre_class_reset()
@@ -870,80 +859,98 @@ class MainWindow(FluentWindow):
         except Exception as e:
             logger.exception(f"检测课前重置时出错: {e}")
 
+    def _get_on_class_left_time(self, data_source):
+        """根据数据源获取距离上课时间
+
+        Args:
+            data_source: 数据源类型 (0: 不使用, 1: CSES, 2: ClassIsland)
+
+        Returns:
+            int: 距离上课的秒数，如果不需要重置则返回None
+        """
+        if data_source == 2:
+            return CSharpIPCHandler.instance().get_on_class_left_time()
+        elif data_source == 1:
+            from app.common.extraction.extract import _get_seconds_to_next_class
+
+            return _get_seconds_to_next_class()
+        else:
+            return None
+
     def _perform_pre_class_reset(self):
         """执行课前重置操作"""
         try:
-            # 清除点名页面的临时记录和结果
-            if self.roll_call_page and hasattr(self.roll_call_page, "clear_result"):
-                self.roll_call_page.clear_result()
-                logger.info("已清除点名页面结果")
-
-            # 清除抽奖页面的临时记录和结果
-            if self.lottery_page and hasattr(self.lottery_page, "clear_result"):
-                self.lottery_page.clear_result()
-                logger.info("已清除抽奖页面结果")
-
-            # 清除 TEMP 文件夹
-            from app.tools.path_utils import get_data_path
-
-            temp_dir = get_data_path("TEMP")
-            if os.path.exists(temp_dir):
-                try:
-                    # Windows 上处理只读文件
-                    def handle_remove_readonly(func, path, exc):
-                        import stat
-
-                        if not os.access(path, os.W_OK):
-                            os.chmod(path, stat.S_IWUSR)
-                            func(path)
-                        else:
-                            raise
-
-                    shutil.rmtree(temp_dir, onerror=handle_remove_readonly)
-                    logger.info("已清除 TEMP 文件夹")
-                except Exception as e:
-                    logger.error(f"清除 TEMP 文件夹失败: {e}")
-
-            # 刷新点名页面的剩余人数显示
-            if self.roll_call_page and hasattr(
-                self.roll_call_page, "update_many_count_label"
-            ):
-                self.roll_call_page.update_many_count_label()
-                logger.debug("已刷新点名页面剩余人数显示")
-
-            # 刷新抽奖页面的显示
-            if self.lottery_page and hasattr(
-                self.lottery_page, "update_many_count_label"
-            ):
-                self.lottery_page.update_many_count_label()
-                logger.debug("已刷新抽奖页面显示")
-
+            self._clear_roll_call_result()
+            self._clear_lottery_result()
+            self._clear_temp_folder()
+            self._refresh_page_displays()
             logger.info("课前重置完成")
 
         except Exception as e:
             logger.exception(f"执行课前重置时出错: {e}")
 
+    def _clear_roll_call_result(self):
+        """清除点名页面结果"""
+        if self.roll_call_page and hasattr(self.roll_call_page, "clear_result"):
+            self.roll_call_page.clear_result()
+            logger.info("已清除点名页面结果")
+
+    def _clear_lottery_result(self):
+        """清除抽奖页面结果"""
+        if self.lottery_page and hasattr(self.lottery_page, "clear_result"):
+            self.lottery_page.clear_result()
+            logger.info("已清除抽奖页面结果")
+
+    def _clear_temp_folder(self):
+        """清除TEMP文件夹"""
+        temp_dir = get_data_path("TEMP")
+        if os.path.exists(temp_dir):
+            try:
+
+                def handle_remove_readonly(func, path, exc):
+                    import stat
+
+                    if not os.access(path, os.W_OK):
+                        os.chmod(path, stat.S_IWUSR)
+                        func(path)
+                    else:
+                        raise
+
+                shutil.rmtree(temp_dir, onerror=handle_remove_readonly)
+                logger.info("已清除 TEMP 文件夹")
+            except Exception as e:
+                logger.error(f"清除 TEMP 文件夹失败: {e}")
+
+    def _refresh_page_displays(self):
+        """刷新页面显示"""
+        if self.roll_call_page and hasattr(
+            self.roll_call_page, "update_many_count_label"
+        ):
+            self.roll_call_page.update_many_count_label()
+            logger.debug("已刷新点名页面剩余人数显示")
+
+        if self.lottery_page and hasattr(self.lottery_page, "update_many_count_label"):
+            self.lottery_page.update_many_count_label()
+            logger.debug("已刷新抽奖页面显示")
+
     def _init_pre_class_reset(self):
         """初始化课前重置功能"""
         try:
             logger.debug("初始化课前重置功能")
-            # 检查是否启用了课前重置功能
             pre_class_reset_enabled = readme_settings_async(
                 "linkage_settings", "pre_class_reset_enabled", False
             )
             if not pre_class_reset_enabled:
                 return
 
-            # 检查数据源选择
             data_source = readme_settings_async("linkage_settings", "data_source", 0)
 
             if data_source == 0:
-                # 不使用数据源，不启动定时器
                 logger.debug("未启用数据源，不启动课前重置定时器")
                 return
 
             if not self.pre_class_reset_timer.isActive():
-                self.pre_class_reset_timer.start(1000)
+                self.pre_class_reset_timer.start(PRE_CLASS_RESET_INTERVAL_MS)
                 if data_source == 2:
                     logger.debug("课前重置定时器已启动（ClassIsland模式）")
                 else:
@@ -951,3 +958,77 @@ class MainWindow(FluentWindow):
 
         except Exception as e:
             logger.exception(f"初始化课前重置功能时出错: {e}")
+
+    # ==================================================
+    # 应用程序退出与重启
+    # ==================================================
+
+    def restart_app(self):
+        """重启应用程序（跨平台支持）
+        执行安全验证后重启程序，清理所有资源"""
+        logger.info("正在发起重启请求...")
+
+        if self.pre_class_reset_timer.isActive():
+            self.pre_class_reset_timer.stop()
+
+        self.cleanup_shortcuts()
+
+        QApplication.exit(EXIT_CODE_RESTART)
+
+    def close_window_secrandom(self):
+        """关闭窗口
+        执行安全验证后关闭程序，释放所有资源"""
+        logger.info("程序正在退出 (close_window_secrandom)...")
+
+        self._stop_pre_class_reset_timer()
+        self._cleanup_shortcuts()
+        self._stop_ipc_client()
+        self._close_all_windows()
+        self._close_main_window()
+        self._quit_application()
+
+    def _stop_pre_class_reset_timer(self):
+        """停止课前重置定时器"""
+        if (
+            hasattr(self, "pre_class_reset_timer")
+            and self.pre_class_reset_timer.isActive()
+        ):
+            self.pre_class_reset_timer.stop()
+            logger.debug("课前重置定时器已停止")
+
+    def _cleanup_shortcuts(self):
+        """快速清理快捷键"""
+        self.cleanup_shortcuts()
+        logger.debug("快捷键已清理")
+
+    def _stop_ipc_client(self):
+        """停止IPC客户端"""
+        try:
+            CSharpIPCHandler.instance().stop_ipc_client()
+            logger.debug("C# IPC 停止请求已发出")
+        except Exception as e:
+            logger.exception(f"停止 IPC 客户端失败: {e}")
+
+    def _close_all_windows(self):
+        """显式关闭所有顶层窗口（包括悬浮窗、设置窗口等）"""
+        try:
+            top_level_widgets = QApplication.topLevelWidgets()
+            logger.debug(f"正在关闭所有顶层窗口，共 {len(top_level_widgets)} 个")
+            for widget in top_level_widgets:
+                if widget != self:
+                    logger.debug(f"正在关闭窗口: {widget.objectName() or widget}")
+                    widget.close()
+                    if hasattr(widget, "hide"):
+                        widget.hide()
+        except Exception as e:
+            logger.exception(f"关闭其他窗口时出错: {e}")
+
+    def _close_main_window(self):
+        """关闭主窗口"""
+        logger.debug("正在关闭主窗口...")
+        self.close()
+
+    def _quit_application(self):
+        """请求退出应用程序"""
+        logger.info("已发出 QApplication.quit() 请求")
+        QApplication.quit()

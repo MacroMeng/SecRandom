@@ -8,6 +8,25 @@ v2.0 - Koharu（小鸟游星野） release 4
 ## 💡 功能优化
 
 - 优化 Sentry错误上报，过滤**第三方库**无效错误
+- 优化 Sentry日志上报，仅上报**异常**，ERROR级别日志不上报
+- 优化 main.py，重构结构、提取常量并新增文档注释
+- 优化 window.py，重构结构、提取常量并新增文档注释
+- 优化 tray.py，重构结构、提取常量并新增文档注释
+- 优化 app/tools 目录，重构结构并提取常量
+- 优化 button_draw_utils.py，新增函数文档注释
+- 优化 config.py，新增通知与音量常量配置
+- 优化 roll_call.py，提取重复代码至**UI工具类**
+- 优化 lottery.py，提取重复代码至**UI工具类**
+- 新增 app/common/ui/ui_utils.py，创建通用**UI工具类**
+- 新增 RollCallController，封装点名**业务逻辑**
+- 新增 LotteryController，封装抽奖**业务逻辑**
+- 新增 RollCallUIInterface，预留**自定义界面接口**
+- 新增 LotteryUIInterface，预留**自定义界面接口**
+- 优化 VoiceCacheManager，移除**内存缓存**，只保留磁盘缓存
+- 优化 TTSHandler，整合**系统音量控制**逻辑
+- 优化 edge_tts_worker.py，移除冗余注释，简化**代码结构**
+- 优化 font_manager.py，重构字体加载逻辑，提取**常量映射**
+- 优化 personalised.py，简化图标与主题函数，移除**重复代码**
 
 ## 🐛 修复问题
 

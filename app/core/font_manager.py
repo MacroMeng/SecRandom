@@ -1,14 +1,29 @@
 import os
 from typing import Optional
+
 from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtWidgets import QApplication, QWidget
 from loguru import logger
 
 from app.tools.settings_access import readme_settings_async
 from app.tools.variable import FONT_APPLY_DELAY
 from app.core.utils import safe_execute
-from PySide6.QtGui import QFont, QFontDatabase
 from app.tools.path_utils import get_data_path
+
+
+FONT_FAMILY_DEFAULT = "HarmonyOS Sans SC"
+FONT_WEIGHT_MAP = {
+    0: (QFont.Weight.Thin, "HarmonyOS_Sans_SC_Light.ttf"),
+    1: (QFont.Weight.ExtraLight, "HarmonyOS_Sans_SC_Light.ttf"),
+    2: (QFont.Weight.Light, "HarmonyOS_Sans_SC_Light.ttf"),
+    3: (QFont.Weight.Normal, "HarmonyOS_Sans_SC_Medium.ttf"),
+    4: (QFont.Weight.Medium, "HarmonyOS_Sans_SC_Medium.ttf"),
+    5: (QFont.Weight.DemiBold, "HarmonyOS_Sans_SC_Medium.ttf"),
+    6: (QFont.Weight.Bold, "HarmonyOS_Sans_SC_Bold.ttf"),
+    7: (QFont.Weight.ExtraBold, "HarmonyOS_Sans_SC_Bold.ttf"),
+    8: (QFont.Weight.Black, "HarmonyOS_Sans_SC_Bold.ttf"),
+}
 
 
 def get_font_weight_file(weight_value: int) -> str:
@@ -20,18 +35,23 @@ def get_font_weight_file(weight_value: int) -> str:
     Returns:
         str: 对应的字体文件名
     """
-    font_file_map = {
-        0: "HarmonyOS_Sans_SC_Light.ttf",
-        1: "HarmonyOS_Sans_SC_Light.ttf",
-        2: "HarmonyOS_Sans_SC_Light.ttf",
-        3: "HarmonyOS_Sans_SC_Medium.ttf",
-        4: "HarmonyOS_Sans_SC_Medium.ttf",
-        5: "HarmonyOS_Sans_SC_Medium.ttf",
-        6: "HarmonyOS_Sans_SC_Bold.ttf",
-        7: "HarmonyOS_Sans_SC_Bold.ttf",
-        8: "HarmonyOS_Sans_SC_Bold.ttf",
-    }
-    return font_file_map.get(weight_value, "HarmonyOS_Sans_SC_Medium.ttf")
+    return FONT_WEIGHT_MAP.get(
+        weight_value, (QFont.Weight.Normal, "HarmonyOS_Sans_SC_Medium.ttf")
+    )[1]
+
+
+def get_font_weight_value(weight_value: int) -> QFont.Weight:
+    """根据字体粗细数值获取对应的 QFont.Weight 枚举值
+
+    Args:
+        weight_value: 字体粗细数值 (0-8)
+
+    Returns:
+        QFont.Weight: 对应的字体粗细枚举值
+    """
+    return FONT_WEIGHT_MAP.get(
+        weight_value, (QFont.Weight.Normal, "HarmonyOS_Sans_SC_Medium.ttf")
+    )[0]
 
 
 def load_font_by_weight(font_family: str, font_weight: int) -> str:
@@ -44,47 +64,55 @@ def load_font_by_weight(font_family: str, font_weight: int) -> str:
     Returns:
         str: 加载成功的字体家族名称
     """
-    # 如果是默认字体，根据粗细加载对应的字体文件
-    if font_family == "HarmonyOS Sans SC SC":
-        font_file = get_font_weight_file(font_weight)
-        logger.debug(f"根据粗细 {font_weight} 加载字体文件: {font_file}")
-        font_path = get_data_path("font/HarmonyOS_Sans_SC", font_file)
-        font_id = QFontDatabase.addApplicationFont(str(font_path))
+    if font_family == FONT_FAMILY_DEFAULT:
+        return _load_harmonyos_font(font_weight)
 
-        if font_id < 0:
-            logger.exception(f"加载字体文件失败: {font_path}")
-            return font_family
+    return _apply_system_font(font_family, font_weight)
 
-        font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
-        logger.debug(f"已加载字体: {font_family} (粗细: {font_weight})")
-        return font_family
 
-    # 对于非默认字体，应用字体粗细到应用程序字体
+def _load_harmonyos_font(font_weight: int) -> str:
+    """加载 HarmonyOS Sans SC 字体
+
+    Args:
+        font_weight: 字体粗细数值 (0-8)
+
+    Returns:
+        str: 加载成功的字体家族名称
+    """
+    font_file = get_font_weight_file(font_weight)
+    logger.debug(f"根据粗细 {font_weight} 加载字体文件: {font_file}")
+    font_path = get_data_path("font/HarmonyOS_Sans_SC", font_file)
+    font_id = QFontDatabase.addApplicationFont(str(font_path))
+
+    if font_id < 0:
+        logger.exception(f"加载字体文件失败: {font_path}")
+        return FONT_FAMILY_DEFAULT
+
+    font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
+    logger.debug(f"已加载字体: {font_family} (粗细: {font_weight})")
+    return font_family
+
+
+def _apply_system_font(font_family: str, font_weight: int) -> str:
+    """应用系统字体设置
+
+    Args:
+        font_family: 字体家族名称
+        font_weight: 字体粗细数值 (0-8)
+
+    Returns:
+        str: 字体家族名称
+    """
     app_font = QApplication.font()
     app_font.setFamily(font_family)
+    app_font.setWeight(get_font_weight_value(font_weight))
 
-    # 将数值映射到 QFont.Weight
-    weight_map = {
-        0: QFont.Weight.Thin,
-        1: QFont.Weight.ExtraLight,
-        2: QFont.Weight.Light,
-        3: QFont.Weight.Normal,
-        4: QFont.Weight.Medium,
-        5: QFont.Weight.DemiBold,
-        6: QFont.Weight.Bold,
-        7: QFont.Weight.ExtraBold,
-        8: QFont.Weight.Black,
-    }
-    font_weight_value = weight_map.get(font_weight, QFont.Weight.Normal)
-    app_font.setWeight(font_weight_value)
-
-    # 应用到所有控件
     for widget in QApplication.allWidgets():
         if isinstance(widget, QWidget):
             current_font = widget.font()
             if (
                 current_font.family() != font_family
-                or current_font.weight() != font_weight_value
+                or current_font.weight() != app_font.weight()
             ):
                 new_font = app_font
                 new_font.setBold(current_font.bold())
@@ -135,7 +163,6 @@ def apply_font_settings() -> None:
 
     from qfluentwidgets import setFontFamilies
 
-    # 根据字体粗细加载对应的字体文件
     actual_font_family = load_font_by_weight(
         font_family, int(font_weight_value) if font_weight_value else 3
     )

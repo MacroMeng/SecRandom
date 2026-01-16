@@ -5,16 +5,15 @@
 """
 
 # --------- 标准库 ---------
-import json
 import asyncio
 import concurrent.futures
+import json
 import os
 import platform
 import queue
 import sys
 import threading
 import time
-from collections import OrderedDict
 from io import BytesIO
 from queue import Queue, Empty
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -283,36 +282,15 @@ class VoicePlaybackSystem:
 
 
 class VoiceCacheManager:
-    """智能语音缓存系统"""
-
-    # 智能语音缓存系统
-    # 内存缓存大小限制（条） - 优化为更小的缓存以减少内存占用
-    MEMORY_CACHE_SIZE = 25
-    # 缓存过期时间（秒）
-    CACHE_EXPIRY_TIME = 3600 * 24  # 24小时
-    # 清理间隔时间（秒）
-    CLEANUP_INTERVAL = 3600  # 1小时
+    """语音磁盘缓存系统"""
 
     def __init__(self, audio_dir: Optional[str] = None):
         self.audio_dir: str = audio_dir if audio_dir else get_audio_path("voices")
         ensure_dir(self.audio_dir)
-        # 使用OrderedDict实现LRU缓存
-        self._memory_cache: Dict[str, Tuple[np.ndarray, int]] = OrderedDict()
         self._disk_cache_lock: threading.Lock = threading.Lock()
-        self._memory_cache_lock: threading.Lock = threading.Lock()
-        self._last_cleanup_time: float = time.time()
-
-        # 启动缓存清理线程
-        self._cleanup_thread: threading.Thread = threading.Thread(
-            target=self._cache_cleanup_worker,
-            daemon=True,
-            name="VoiceCacheCleanupThread",
-        )
-        self._cleanup_thread.start()
 
     def get_voice(self, text: str, voice: str) -> Tuple[np.ndarray, int]:
-        """获取语音数据（自动缓存）"""
-        # 输入验证
+        """获取语音数据（自动缓存到磁盘）"""
         if not isinstance(text, str) or not text:
             logger.warning(f"无效的文本: {text}")
             raise ValueError("文本不能为空")
@@ -322,45 +300,18 @@ class VoiceCacheManager:
 
         logger.debug(f"获取语音: text='{text}', voice='{voice}'")
 
-        # 检查并执行缓存清理
-        self._check_and_cleanup()
-
-        # 1. 检查内存缓存
-        cache_key: str = self._generate_cache_key(text, voice)
-        with self._memory_cache_lock:
-            if cache_key in self._memory_cache:
-                logger.debug(f"命中内存缓存: {cache_key}")
-                # 移到末尾表示最近使用
-                self._memory_cache.move_to_end(cache_key)
-                return self._memory_cache[cache_key]
-
-        # 2. 检查磁盘缓存
         file_path: str = self._get_cache_file_path(text, voice)
         if os.path.exists(file_path):
             logger.debug(f"命中磁盘缓存: {file_path}")
             try:
                 data, fs = sf.read(file_path)
-                # 更新文件的访问时间和修改时间，延长缓存有效期
-                current_time = time.time()
-                os.utime(file_path, times=(current_time, current_time))
-                # 加入内存缓存
-                self._add_to_memory_cache(cache_key, data, fs)
                 return data, fs
             except Exception as e:
                 logger.exception(f"读取缓存失败: {e}")
-        else:
-            logger.debug(f"未命中缓存，生成新语音: {cache_key}")
 
-        # 3. 实时生成并缓存
+        logger.debug(f"未命中缓存，生成新语音: {file_path}")
         data, fs = asyncio.run(self._generate_voice(text, voice))
-
-        # 异步保存到磁盘
-        threading.Thread(
-            target=self._save_to_disk, args=(file_path, data, fs), daemon=True
-        ).start()
-
-        # 加入内存缓存
-        self._add_to_memory_cache(cache_key, data, fs)
+        self._save_to_disk(file_path, data, fs)
         return data, fs
 
     async def _generate_voice(self, text: str, voice: str) -> Tuple[np.ndarray, int]:
@@ -421,8 +372,7 @@ class VoiceCacheManager:
         raise RuntimeError("生成语音失败")
 
     def _generate_cache_key(self, text: str, voice: str) -> str:
-        """生成缓存键，使用语音模型名称和文本的组合"""
-        # 生成安全的文件名，移除或替换不安全的字符
+        """生成安全的文件名"""
         safe_text = (
             text.replace("/", "_")
             .replace("\\", "_")
@@ -437,8 +387,7 @@ class VoiceCacheManager:
         return f"{voice}_{safe_text}"
 
     def _get_cache_file_path(self, text: str, voice: str) -> str:
-        """获取缓存文件路径，使用语音模型名称和学生/奖品名称作为文件名"""
-        # 生成安全的文件名，移除或替换不安全的字符
+        """获取缓存文件路径"""
         safe_text = (
             text.replace("/", "_")
             .replace("\\", "_")
@@ -453,61 +402,14 @@ class VoiceCacheManager:
         filename = f"{voice}_{safe_text}.wav"
         return os.path.join(self.audio_dir, filename)
 
-    def _add_to_memory_cache(self, cache_key: str, data: np.ndarray, fs: int) -> None:
-        """添加到内存缓存，实现LRU机制"""
-        with self._memory_cache_lock:
-            if cache_key in self._memory_cache:
-                # 如果已存在，移到末尾
-                self._memory_cache.move_to_end(cache_key)
-            else:
-                # 检查是否超过容量限制
-                if len(self._memory_cache) >= self.MEMORY_CACHE_SIZE:
-                    # 删除最久未使用的项并释放内存
-                    old_key, (old_data, old_fs) = self._memory_cache.popitem(last=False)
-                    # 清理旧数据
-                    del old_data
-                    del old_fs
-                    # 强制垃圾回收
-                    import gc
-
-                    gc.collect()
-                    logger.debug(f"移除过期缓存项: {old_key}, 已回收内存")
-                # 添加新项到末尾
-                self._memory_cache[cache_key] = (data, fs)
-
     def _save_to_disk(self, file_path: str, data: np.ndarray, fs: int) -> None:
-        """异步保存到磁盘"""
+        """保存到磁盘"""
         try:
             with self._disk_cache_lock:
                 sf.write(file_path, data, fs)
+                logger.debug(f"语音已保存到磁盘: {file_path}")
         except Exception as e:
             logger.exception(f"保存缓存失败: {e}")
-
-    def _check_and_cleanup(self) -> None:
-        """检查并执行缓存清理"""
-        current_time: float = time.time()
-        if current_time - self._last_cleanup_time >= self.CLEANUP_INTERVAL:
-            # 执行清理
-            self._cleanup_expired_cache()
-            self._last_cleanup_time = current_time
-
-    def _cache_cleanup_worker(self) -> None:
-        """缓存清理线程"""
-        while True:
-            time.sleep(self.CLEANUP_INTERVAL)
-            self._cleanup_expired_cache()
-
-    def _cleanup_expired_cache(self) -> None:
-        """清理过期缓存文件
-
-        注意：根据需求，本地音频文件不会过期，所以此方法不再删除文件
-        但保留缓存清理线程，以便未来扩展其他清理逻辑
-        """
-        try:
-            logger.info("缓存清理：本地音频文件不会过期，跳过文件删除")
-            # 可以在这里添加其他清理逻辑，如日志清理等
-        except Exception as e:
-            logger.exception(f"缓存清理失败: {e}")
 
 
 class LoadBalancer:
@@ -617,19 +519,15 @@ class TTSHandler:
         self.cache_manager: VoiceCacheManager = VoiceCacheManager()
         self.playback_system.start()
         self.voice_engine: Optional[Any] = None
-        self.system_tts_lock: threading.Lock = (
-            threading.Lock()
-        )  # 系统TTS线程锁，防止冲突
+        self.system_tts_lock: threading.Lock = threading.Lock()
 
-        # 使用线程池管理异步任务
         self._thread_pool: concurrent.futures.ThreadPoolExecutor = (
             concurrent.futures.ThreadPoolExecutor(
-                max_workers=4,  # 限制线程数量
+                max_workers=4,
                 thread_name_prefix="TTSWorker",
             )
         )
 
-        # 跨平台TTS引擎初始化
         self._init_tts_engine()
 
     def _init_tts_engine(self) -> None:
@@ -638,7 +536,6 @@ class TTSHandler:
             system: str = platform.system()
 
             if system == "Windows":
-                # Windows平台支持检查
                 if (
                     sys.platform == "win32"
                     and sys.getwindowsversion().major >= 10
@@ -670,9 +567,7 @@ class TTSHandler:
                     self.voice_engine = None
 
             elif system == "Linux":
-                # Linux平台TTS引擎初始化
                 try:
-                    # 检查espeak是否可用
                     import subprocess
 
                     result = subprocess.run(
@@ -708,6 +603,21 @@ class TTSHandler:
         except Exception as e:
             logger.warning(f"TTS引擎初始化失败: {e}，语音功能将不可用")
             self.voice_engine = None
+
+    def _apply_system_volume(self) -> None:
+        """应用系统音量控制"""
+        try:
+            system_volume_control = readme_settings_async(
+                "basic_voice_settings", "system_volume_control"
+            )
+            if system_volume_control:
+                system_volume_size = readme_settings_async(
+                    "basic_voice_settings", "system_volume_size"
+                )
+                if isinstance(system_volume_size, (int, str)):
+                    restore_volume(int(system_volume_size))
+        except Exception as e:
+            logger.exception(f"系统音量控制处理失败: {e}")
 
     @require_permission("tts.use")
     def voice_play(
@@ -802,22 +712,7 @@ class TTSHandler:
         self, student_names: List[str], config: Dict[str, Any]
     ) -> None:
         """系统TTS处理"""
-        # 检查是否开启系统音量控制（增强错误处理，防止崩溃）
-        try:
-            system_volume_control = readme_settings_async(
-                "basic_voice_settings", "system_volume_control"
-            )
-            if system_volume_control:
-                # 获取系统音量大小并设置
-                system_volume_size = readme_settings_async(
-                    "basic_voice_settings", "system_volume_size"
-                )
-                # 确保音量值是整数
-                if isinstance(system_volume_size, (int, str)):
-                    restore_volume(int(system_volume_size))
-        except Exception as e:
-            logger.exception(f"系统音量控制处理失败: {e}")
-            # 继续执行，不影响语音播报
+        self._apply_system_volume()
 
         with self.system_tts_lock:
             if self.voice_engine is None:
@@ -829,33 +724,6 @@ class TTSHandler:
                     self.voice_engine.iterate()
                 except Exception as e:
                     logger.exception(f"处理{name}失败: {e}")
-
-    def _init_system_tts(self, config: Dict[str, Any]) -> Optional[Any]:
-        """初始化系统TTS引擎（跨平台支持）"""
-        try:
-            engine = pyttsx3.init()
-            engine.setProperty("volume", config["voice_volume"] / 100.0)
-            engine.setProperty("rate", int(200 * (config["voice_speed"] / 100)))
-
-            # 语音模型设置
-            voices = engine.getProperty("voices")
-            voice_found = False
-            for voice in voices:
-                if config["system_voice_name"] in voice.id:
-                    engine.setProperty("voice", voice.id)
-                    voice_found = True
-                    break
-
-            if not voice_found and voices:
-                # 如果找不到指定语音，使用第一个可用语音
-                engine.setProperty("voice", voices[0].id)
-                logger.info(f"未找到语音'{config['system_voice_name']}'，使用默认语音")
-
-            return engine
-
-        except Exception as e:
-            logger.exception(f"初始化系统TTS引擎失败: {e}")
-            return None
 
     def _handle_edge_tts(
         self, student_names: List[str], config: Dict[str, Any], voice_name: str
@@ -870,33 +738,14 @@ class TTSHandler:
         self, student_names: List[str], config: Dict[str, Any], voice_name: str
     ) -> None:
         """准备并播放语音"""
-        # 检查是否开启系统音量控制（增强错误处理，防止崩溃）
-        try:
-            system_volume_control = readme_settings_async(
-                "basic_voice_settings", "system_volume_control"
-            )
-            if system_volume_control:
-                # 获取系统音量大小并设置
-                system_volume_size = readme_settings_async(
-                    "basic_voice_settings", "system_volume_size"
-                )
-                # 确保音量值是整数
-                if isinstance(system_volume_size, (int, str)):
-                    restore_volume(int(system_volume_size))
-        except Exception as e:
-            logger.exception(f"系统音量控制处理失败: {e}")
-            # 继续执行，不影响语音播报
+        self._apply_system_volume()
 
-        # 设置播放音量，转换为0.0-1.0范围
         self.playback_system.set_volume(config["voice_volume"] / 100.0)
-        # 设置播放语速
         self.playback_system.set_speed(config["voice_speed"])
 
         for name in student_names:
             try:
-                # 获取语音数据（自动缓存）
                 data, fs = self.cache_manager.get_voice(name, voice_name)
-                # 提交播放任务
                 if not self.playback_system.add_task((data, fs)):
                     logger.exception(f"提交播放任务失败: {name}")
             except Exception as e:

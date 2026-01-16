@@ -1,6 +1,3 @@
-# ==================================================
-# 导入库
-# ==================================================
 import asyncio
 import edge_tts
 from loguru import logger
@@ -16,7 +13,6 @@ class EdgeTTSWorker(QThread):
     def run(self):
         """运行线程，获取Edge TTS语音列表"""
         try:
-            # 获取语音列表
             voices = self.get_voices()
             self.voices_fetched.emit(voices)
         except Exception as e:
@@ -26,7 +22,6 @@ class EdgeTTSWorker(QThread):
     def get_voices(self):
         """获取Edge TTS语音列表"""
         try:
-            # 同步获取语音列表
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             voices = loop.run_until_complete(edge_tts.list_voices())
@@ -34,12 +29,10 @@ class EdgeTTSWorker(QThread):
 
             logger.debug(f"Edge TTS API返回原始语音数量: {len(voices)}")
 
-            # 调试：打印前几个语音的结构
             if voices:
                 logger.debug(f"第一个语音的结构: {voices[0]}")
                 logger.debug(f"第一个语音的键: {list(voices[0].keys())}")
 
-            # 简化过滤逻辑
             filtered_voices = []
             total_processed = 0
             passed_filter = 0
@@ -47,22 +40,20 @@ class EdgeTTSWorker(QThread):
             for v in voices:
                 try:
                     total_processed += 1
-                    # 检查必要字段 - 注意：API返回的是Name而不是FriendlyName
                     if "Name" in v and "ShortName" in v and "Locale" in v:
                         passed_filter += 1
-                        name = v["Name"]  # 使用Name字段
-                        display_name = v.get("DisplayName", name)  # 优先使用DisplayName
+                        name = v["Name"]
+                        display_name = v.get("DisplayName", name)
                         short_name = v["ShortName"]
                         locale = v["Locale"]
                         gender = v.get("Gender", "Unknown")
                         voice_type = v.get("VoiceType", "Unknown")
 
-                        # 直接使用short_name作为ID
                         voice_id = short_name
 
                         filtered_voices.append(
                             {
-                                "name": display_name,  # 使用更友好的显示名称
+                                "name": display_name,
                                 "id": voice_id,
                                 "languages": locale.replace("_", "-"),
                                 "full_info": f"{gender} | {locale} | Type: {voice_type}",
@@ -70,7 +61,7 @@ class EdgeTTSWorker(QThread):
                         )
                 except Exception as e:
                     logger.warning(f"处理语音 {v} 时出错: {e}")
-                    if total_processed <= 5:  # 只显示前5个出错的语音
+                    if total_processed <= 5:
                         logger.debug(f"出错语音结构: {v}")
                     continue
 
@@ -79,12 +70,10 @@ class EdgeTTSWorker(QThread):
                 f"处理统计: 总共{total_processed}个, 通过过滤{passed_filter}个, 最终{len(filtered_voices)}个"
             )
 
-            # 如果过滤后列表为空，返回默认语音列表
             if not filtered_voices:
                 logger.warning("过滤后语音列表为空，返回默认语音")
                 return self.get_default_voices()
 
-            # 按语言排序，优先显示中文语音
             filtered_voices.sort(
                 key=lambda x: ("zh-CN" not in x["languages"], x["name"])
             )
@@ -95,7 +84,6 @@ class EdgeTTSWorker(QThread):
             return filtered_voices
         except Exception as e:
             logger.exception(f"获取Edge TTS语音列表失败: {e}")
-            # 返回默认语音列表
             return self.get_default_voices()
 
     def get_default_voices(self):

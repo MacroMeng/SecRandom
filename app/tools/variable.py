@@ -92,6 +92,37 @@ MENU_AUTO_CLOSE_TIMEOUT = 5000  # 菜单自动关闭时间（毫秒）
 
 
 # ==================================================
+# 按钮绘制配置
+# ==================================================
+
+# -------------------- 按钮绘制常量 --------------------
+BUTTON_BACKGROUND_ALPHA_DARK = 42  # 深色主题背景透明度
+BUTTON_BACKGROUND_ALPHA_LIGHT = 255  # 浅色主题背景透明度
+BUTTON_ENTER_ALPHA_DARK = 9  # 深色主题鼠标进入透明度
+BUTTON_ENTER_ALPHA_LIGHT = 9  # 浅色主题鼠标进入透明度
+BUTTON_PRESSED_ALPHA_DARK = 6  # 深色主题按下透明度
+BUTTON_PRESSED_ALPHA_LIGHT = 6  # 浅色主题按下透明度
+BUTTON_INDICATOR_HEIGHT_NORMAL = 24  # 正常状态指示条高度
+BUTTON_INDICATOR_HEIGHT_PRESSED = 18  # 按下状态指示条高度
+BUTTON_INDICATOR_WIDTH = 4  # 指示条宽度
+BUTTON_INDICATOR_RADIUS = 2  # 指示条圆角半径
+BUTTON_RECT_RADIUS = 5  # 按钮圆角半径
+BUTTON_INDICATOR_Y_OFFSET_PRESSED = 3  # 按下时指示条Y轴偏移
+
+
+# ==================================================
+# 托盘图标配置
+# ==================================================
+
+# -------------------- 托盘图标基础配置 --------------------
+TRAY_TOOLTIP_TEXT = "SecRandom"  # 托盘图标工具提示文本
+TRAY_ICON_FILENAME = "secrandom-icon-paper.png"  # 托盘图标文件名
+
+# -------------------- 托盘菜单配置 --------------------
+TRAY_MENU_POSITION_ADJUSTMENT = 35  # 托盘菜单位置调整值（像素）
+
+
+# ==================================================
 # 功能模块配置
 # ==================================================
 
@@ -223,6 +254,35 @@ EXIT_CODE_RESTART = 1000  # 重启应用程序的退出代码
 # -------------------- 设置页面预热配置 --------------------
 SETTINGS_WARMUP_INTERVAL_MS = 800  # 后台预热设置页面的默认时间间隔（毫秒）
 SETTINGS_WARMUP_MAX_PRELOAD = 1  # 后台预热设置页面的默认最大预热页数
+
+# -------------------- 窗口管理配置 --------------------
+PRE_CLASS_RESET_INTERVAL_MS = 1000  # 课前重置定时器间隔（毫秒）
+RESIZE_TIMER_DELAY_MS = 500  # 窗口大小变化保存延迟（毫秒）
+MAXIMIZE_RESTORE_DELAY_MS = 100  # 最大化恢复延迟（毫秒）
+
+# -------------------- 设置窗口配置 --------------------
+SETTINGS_WINDOW_DEFAULT_WIDTH = 800  # 设置窗口默认宽度
+SETTINGS_WINDOW_DEFAULT_HEIGHT = 600  # 设置窗口默认高度
+SETTINGS_WARMUP_DELAY_MS = 300  # 设置窗口后台预热延迟（毫秒）
+SETTINGS_DEFAULT_PAGE_DELAY_MS = 100  # 设置窗口默认页面加载延迟（毫秒）
+
+
+# ==================================================
+# 监控与调试配置
+# ==================================================
+
+# -------------------- Sentry 监控配置 --------------------
+SENTRY_DSN = "https://f48074b49e319f7b952583c283046259@o4510289605296128.ingest.de.sentry.io/4510681366659152"
+SENTRY_TRACES_SAMPLE_RATE = 1.0
+
+# -------------------- 开发与调试配置 --------------------
+DEV_VERSION = "v0.0.0"  # 开发版本标识
+DEV_HINT_DELAY_MS = 100  # 开发提示延迟时间（毫秒）
+UPDATE_CHECK_THREAD_TIMEOUT_MS = 2000  # 更新检查线程超时时间（毫秒）
+PROCESS_EXIT_WAIT_SECONDS = 1  # 进程退出等待时间（秒）
+
+# -------------------- Windows 进程配置 --------------------
+CREATE_NO_WINDOW = 0x08000000  # Windows 进程创建标志，不创建新窗口
 
 
 # ==================================================

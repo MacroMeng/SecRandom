@@ -17,6 +17,13 @@ from app.tools.variable import (
     APP_QUIT_ON_LAST_WINDOW_CLOSED,
     VERSION,
     EXIT_CODE_RESTART,
+    SENTRY_DSN,
+    SENTRY_TRACES_SAMPLE_RATE,
+    DEV_VERSION,
+    DEV_HINT_DELAY_MS,
+    UPDATE_CHECK_THREAD_TIMEOUT_MS,
+    PROCESS_EXIT_WAIT_SECONDS,
+    CREATE_NO_WINDOW,
 )
 from app.core.single_instance import (
     check_single_instance,
@@ -32,8 +39,140 @@ from app.tools.update_utils import update_check_thread
 import app.core.window_manager as wm
 
 
-def main():
-    """主程序入口"""
+# ==================================================
+# Sentry 相关函数
+# ==================================================
+
+
+def create_sentry_before_send_filter():
+    """创建 Sentry 事件过滤器
+
+    过滤掉不需要上报的错误，如第三方库错误和常见的无害错误
+    """
+
+    def before_send(event, hint):
+        if "exception" not in event:
+            return None
+
+        exceptions = event.get("exception", {}).get("values", [])
+        if not exceptions:
+            return None
+
+        for exc in exceptions:
+            module = exc.get("module", "")
+            type_ = exc.get("type", "")
+            value = exc.get("value", "")
+
+            if module.startswith("qfluentwidgets"):
+                return None
+
+            if type_ == "RuntimeError" and "Internal C++ object" in str(value):
+                return None
+
+            if type_ == "COMError" and "没有注册类" in str(value):
+                return None
+
+        return event
+
+    return before_send
+
+
+def initialize_sentry():
+    """初始化 Sentry 错误监控系统"""
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            LoguruIntegration(
+                level=LoggingLevels.INFO.value,
+                event_level=LoggingLevels.CRITICAL.value,
+            ),
+        ],
+        before_send=create_sentry_before_send_filter(),
+        release=VERSION,
+        send_default_pii=True,
+        enable_logs=True,
+        traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
+    )
+    sentry_sdk.set_user({"ip_address": "{{auto}}"})
+
+
+# ==================================================
+# 开发提示相关函数
+# ==================================================
+
+
+def add_dev_hint_to_window(window):
+    """为窗口添加开发中提示
+
+    Args:
+        window: 要添加提示的窗口对象
+    """
+    from app.view.components.dev_hint_widget import DevHintWidget
+
+    if not window.isWindow() or hasattr(window, "_dev_hint_added"):
+        return
+
+    dev_hint = DevHintWidget(window)
+    dev_hint.setParent(window)
+    dev_hint.show()
+
+    window._dev_hint_added = True
+
+    original_resize_event = window.resizeEvent
+
+    def new_resize_event(event, orig_event=original_resize_event, dh=dev_hint):
+        if orig_event:
+            orig_event(event)
+        dh.update_position()
+
+    window.resizeEvent = new_resize_event
+    dev_hint.update_position()
+
+
+def add_dev_hints_to_existing_windows():
+    """为所有现有窗口添加开发提示"""
+    for widget in QApplication.topLevelWidgets():
+        add_dev_hint_to_window(widget)
+
+
+def setup_dev_hints(app):
+    """设置开发提示功能
+
+    Args:
+        app: QApplication 实例
+    """
+    QTimer.singleShot(DEV_HINT_DELAY_MS, add_dev_hints_to_existing_windows)
+
+    original_notify = app.notify
+
+    def new_notify(receiver, event):
+        result = original_notify(receiver, event)
+
+        if (
+            hasattr(event, "type")
+            and event.type() == event.Type.Show
+            and hasattr(receiver, "isWindow")
+            and receiver.isWindow()
+            and not hasattr(receiver, "_dev_hint_added")
+        ):
+            add_dev_hint_to_window(receiver)
+
+        return result
+
+    app.notify = new_notify
+
+
+# ==================================================
+# 应用程序初始化相关函数
+# ==================================================
+
+
+def initialize_application():
+    """初始化应用程序环境
+
+    Returns:
+        tuple: (program_dir, shared_memory, is_first_instance)
+    """
     program_dir = str(get_app_root())
 
     if os.getcwd() != program_dir:
@@ -43,71 +182,41 @@ def main():
     logger.remove()
     configure_logging()
 
-    # 仅在 非开发 环境（版本号不包含 0.0.0）下初始化 Sentry
-    if "0.0.0" not in VERSION:
-
-        def before_send(event, hint):
-            if "exception" not in event:
-                return None
-
-            exceptions = event.get("exception", {}).get("values", [])
-            if not exceptions:
-                return None
-
-            for exc in exceptions:
-                module = exc.get("module", "")
-                type_ = exc.get("type", "")
-                value = exc.get("value", "")
-
-                if module.startswith("qfluentwidgets"):
-                    return None
-
-                if type_ == "RuntimeError" and "Internal C++ object" in str(value):
-                    return None
-
-                if type_ == "COMError" and "没有注册类" in str(value):
-                    return None
-
-            return event
-
-        sentry_sdk.init(
-            dsn="https://f48074b49e319f7b952583c283046259@o4510289605296128.ingest.de.sentry.io/4510681366659152",
-            integrations=[
-                LoguruIntegration(
-                    level=LoggingLevels.INFO.value,
-                    event_level=LoggingLevels.ERROR.value,
-                ),
-            ],
-            before_send=before_send,
-            release=VERSION,
-            send_default_pii=True,
-            enable_logs=True,
-            # 先1.0（100%上报）试试
-            traces_sample_rate=1.0,
-        )
-
-        # 只使用ip判断
-        sentry_sdk.set_user({"ip_address": "{{auto}}"})
+    if DEV_VERSION not in VERSION:
+        initialize_sentry()
 
     wm.app_start_time = time.perf_counter()
 
     shared_memory, is_first_instance = check_single_instance()
 
-    # 防止原来的进程没完全结束
-    time.sleep(1)
+    time.sleep(PROCESS_EXIT_WAIT_SECONDS)
 
-    if not is_first_instance:
-        if len(sys.argv) > 1 and any(
-            arg.startswith("secrandom://") for arg in sys.argv
-        ):
-            for arg in sys.argv[1:]:
-                if arg.startswith("secrandom://"):
-                    send_url_to_existing_instance(arg)
-                    break
+    return program_dir, shared_memory, is_first_instance
 
-        logger.info("程序将退出，已有实例已激活")
-        sys.exit(0)
 
+def handle_existing_instance(shared_memory):
+    """处理已存在的应用程序实例
+
+    Args:
+        shared_memory: 共享内存对象
+    """
+    if len(sys.argv) > 1 and any(arg.startswith("secrandom://") for arg in sys.argv):
+        for arg in sys.argv[1:]:
+            if arg.startswith("secrandom://"):
+                send_url_to_existing_instance(arg)
+                break
+
+    logger.info("程序将退出，已有实例已激活")
+    shared_memory.detach()
+    sys.exit(0)
+
+
+def setup_qt_application():
+    """设置 Qt 应用程序
+
+    Returns:
+        tuple: (app, window_manager, url_handler, cs_ipc_handler, local_server)
+    """
     configure_dpi_scale()
 
     app = QApplication(sys.argv)
@@ -132,160 +241,180 @@ def main():
         window_manager.get_main_window(), window_manager.get_float_window(), url_handler
     )
 
+    return app, window_manager, url_handler, cs_ipc_handler, local_server
+
+
+def initialize_app_components(window_manager):
+    """初始化应用程序组件
+
+    Args:
+        window_manager: 窗口管理器实例
+    """
+    app_initializer = AppInitializer(window_manager)
+    app_initializer.initialize()
+
+
+# ==================================================
+# 应用程序清理相关函数
+# ==================================================
+
+
+def cleanup_resources(
+    shared_memory, local_server, url_handler, cs_ipc_handler, update_check_thread
+):
+    """清理应用程序资源
+
+    Args:
+        shared_memory: 共享内存对象
+        local_server: 本地服务器对象
+        url_handler: URL 处理器对象
+        cs_ipc_handler: CS IPC 处理器对象
+        update_check_thread: 更新检查线程对象
+    """
+    if cs_ipc_handler:
+        cs_ipc_handler.stop_ipc_client()
+
+    if url_handler and hasattr(url_handler, "url_ipc_handler"):
+        url_handler.url_ipc_handler.stop_ipc_server()
+
+    shared_memory.detach()
+    logger.debug("共享内存已释放")
+
+    if local_server:
+        local_server.close()
+        logger.debug("本地服务器已关闭")
+
+    if update_check_thread and update_check_thread.isRunning():
+        logger.debug("正在等待更新检查线程完成...")
+        update_check_thread.wait(UPDATE_CHECK_THREAD_TIMEOUT_MS)
+        if update_check_thread.isRunning():
+            logger.warning("更新检查线程超时，强行退出")
+        else:
+            logger.debug("更新检查线程已安全完成")
+
+    gc.collect()
+    logger.debug("垃圾回收已完成")
+
+
+def restart_application(program_dir):
+    """重启应用程序
+
+    Args:
+        program_dir: 程序目录路径
+    """
+    logger.info("检测到重启信号，正在重启应用程序...")
+    filtered_args = [arg for arg in sys.argv if not arg.startswith("--")]
+
+    if getattr(sys, "frozen", False):
+        executable = sys.executable
+    else:
+        executable = sys.executable
+
+    if not os.path.exists(executable):
+        logger.critical(f"重启失败：无法找到可执行文件: {executable}")
+        os._exit(1)
+
+    try:
+        if sys.platform.startswith("win"):
+            startup_info = subprocess.STARTUPINFO()
+            startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            subprocess.Popen(
+                [executable] + filtered_args,
+                cwd=program_dir,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW,
+                startupinfo=startup_info,
+            )
+        else:
+            subprocess.Popen(
+                [executable] + filtered_args,
+                cwd=program_dir,
+                start_new_session=True,
+            )
+        logger.info("新的应用程序实例已启动")
+    except Exception as e:
+        logger.exception(f"重启应用程序失败: {e}")
+
+
+def handle_exit(
+    exit_code,
+    program_dir,
+    shared_memory,
+    local_server,
+    url_handler,
+    cs_ipc_handler,
+    update_check_thread,
+):
+    """处理应用程序退出
+
+    Args:
+        exit_code: 退出代码
+        program_dir: 程序目录路径
+        shared_memory: 共享内存对象
+        local_server: 本地服务器对象
+        url_handler: URL 处理器对象
+        cs_ipc_handler: CS IPC 处理器对象
+        update_check_thread: 更新检查线程对象
+    """
+    logger.debug("Qt 事件循环已结束")
+
+    cleanup_resources(
+        shared_memory, local_server, url_handler, cs_ipc_handler, update_check_thread
+    )
+
+    logger.info("程序退出流程已完成，正在结束进程")
+    if sys.stdout:
+        sys.stdout.flush()
+    if sys.stderr:
+        sys.stderr.flush()
+
+    if exit_code == EXIT_CODE_RESTART:
+        restart_application(program_dir)
+
+    os._exit(0)
+
+
+# ==================================================
+# 主程序入口
+# ==================================================
+
+
+def main():
+    """主程序入口"""
+    program_dir, shared_memory, is_first_instance = initialize_application()
+
+    if not is_first_instance:
+        handle_existing_instance(shared_memory)
+
+    app, window_manager, url_handler, cs_ipc_handler, local_server = (
+        setup_qt_application()
+    )
+
     if not local_server:
         logger.exception("无法启动本地服务器，程序将退出")
         shared_memory.detach()
         sys.exit(1)
 
-    app_initializer = AppInitializer(window_manager)
-    app_initializer.initialize()
+    initialize_app_components(window_manager)
 
-    # 添加开发中提示（仅开发版本）
-    if VERSION == "v0.0.0":
-        from app.view.components.dev_hint_widget import DevHintWidget
-
-        def add_dev_hint_to_window(window):
-            """为窗口添加开发中提示"""
-            if not window.isWindow() or hasattr(window, "_dev_hint_added"):
-                return
-
-            # 创建开发提示组件并添加到窗口
-            dev_hint = DevHintWidget(window)
-            dev_hint.setParent(window)
-            dev_hint.show()
-
-            # 标记窗口已添加开发提示
-            window._dev_hint_added = True
-
-            # 重写窗口的resizeEvent方法以更新提示位置
-            original_resize_event = window.resizeEvent
-
-            def new_resize_event(event, orig_event=original_resize_event, dh=dev_hint):
-                # 调用原始resize事件
-                if orig_event:
-                    orig_event(event)
-
-                # 更新开发提示的位置
-                dh.update_position()
-
-            window.resizeEvent = new_resize_event
-
-            # 初始定位
-            dev_hint.update_position()
-
-        # 为现有窗口添加开发提示
-        def add_dev_hints_to_existing_windows():
-            for widget in QApplication.topLevelWidgets():
-                add_dev_hint_to_window(widget)
-
-        # 使用定时器确保在窗口完全创建后再添加提示
-        QTimer.singleShot(100, add_dev_hints_to_existing_windows)
-
-        # 监听新窗口的创建
-        original_notify = app.notify
-
-        def new_notify(receiver, event):
-            result = original_notify(receiver, event)
-
-            # 当新窗口显示时，添加开发提示
-            if (
-                hasattr(event, "type")
-                and event.type() == event.Type.Show
-                and hasattr(receiver, "isWindow")
-                and receiver.isWindow()
-                and not hasattr(receiver, "_dev_hint_added")
-            ):
-                add_dev_hint_to_window(receiver)
-
-            return result
-
-        app.notify = new_notify
+    if VERSION == DEV_VERSION:
+        setup_dev_hints(app)
 
     try:
         exit_code = app.exec()
-        logger.debug("Qt 事件循环已结束")
-
-        # 尝试停止所有后台服务
-        if "cs_ipc_handler" in locals() and cs_ipc_handler:
-            cs_ipc_handler.stop_ipc_client()
-
-        if "url_handler" in locals() and url_handler:
-            if hasattr(url_handler, "url_ipc_handler"):
-                url_handler.url_ipc_handler.stop_ipc_server()
-
-        shared_memory.detach()
-        logger.debug("共享内存已释放")
-
-        if local_server:
-            local_server.close()
-            logger.debug("本地服务器已关闭")
-
-        if update_check_thread and update_check_thread.isRunning():
-            logger.debug("正在等待更新检查线程完成...")
-            update_check_thread.wait(2000)
-            if update_check_thread.isRunning():
-                logger.warning("更新检查线程超时，强行退出")
-            else:
-                logger.debug("更新检查线程已安全完成")
-
-        gc.collect()
-        logger.debug("垃圾回收已完成")
-
-        logger.info("程序退出流程已完成，正在结束进程")
-        if sys.stdout:
-            sys.stdout.flush()
-        if sys.stderr:
-            sys.stderr.flush()
-
-        if exit_code == EXIT_CODE_RESTART:
-            logger.info("检测到重启信号，正在重启应用程序...")
-            # 过滤掉 --url 等参数
-            filtered_args = [arg for arg in sys.argv if not arg.startswith("--")]
-
-            # 获取可执行文件路径
-            if getattr(sys, "frozen", False):
-                # 打包后的可执行文件
-                executable = sys.executable
-            else:
-                # 开发环境
-                executable = sys.executable
-
-            if not os.path.exists(executable):
-                logger.critical(f"重启失败：无法找到可执行文件: {executable}")
-                os._exit(1)
-
-            try:
-                # 跨平台启动新进程
-                if sys.platform.startswith("win"):
-                    # Windows 特定参数
-                    startup_info = subprocess.STARTUPINFO()
-                    startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                    # 使用 CREATE_NO_WINDOW (0x08000000) 来防止创建新的控制台窗口
-                    CREATE_NO_WINDOW = 0x08000000
-                    subprocess.Popen(
-                        [executable] + filtered_args,
-                        cwd=program_dir,
-                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
-                        | CREATE_NO_WINDOW,
-                        startupinfo=startup_info,
-                    )
-                else:
-                    # Linux/macOS
-                    subprocess.Popen(
-                        [executable] + filtered_args,
-                        cwd=program_dir,
-                        start_new_session=True,
-                    )
-                logger.info("新的应用程序实例已启动")
-            except Exception as e:
-                logger.exception(f"重启应用程序失败: {e}")
-
-        os._exit(0)
+        handle_exit(
+            exit_code,
+            program_dir,
+            shared_memory,
+            local_server,
+            url_handler,
+            cs_ipc_handler,
+            update_check_thread,
+        )
     except Exception as e:
         logger.exception(f"程序退出过程中发生异常: {e}")
-        if "shared_memory" in locals():
+        if shared_memory:
             shared_memory.detach()
-        if "local_server" in locals() and local_server:
+        if local_server:
             local_server.close()
         if sys.stdout:
             sys.stdout.flush()

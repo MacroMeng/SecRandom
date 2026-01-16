@@ -1,55 +1,56 @@
-# ==================================================
-# 导入模块
-# ==================================================
+import json
+from typing import Dict, Optional
+
 from qfluentwidgets import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtNetwork import *
-
-import json
 from loguru import logger
 
 from app.tools.variable import *
 from app.tools.path_utils import *
 from app.tools.settings_access import *
-from app.core.font_manager import get_font_weight_file
+from app.core.font_manager import get_font_weight_file, FONT_FAMILY_DEFAULT
 
 
-# ==================================================
-# 字体设置相关函数
-# ==================================================
-def load_custom_font():
+FONT_CACHE_KEY = "_font_cache"
+ICON_CACHE_KEY = "_icon_cache"
+ICON_MAP_CACHE_KEY = "_icon_map_cache"
+
+
+def load_custom_font() -> Optional[str]:
     """加载自定义字体，根据用户设置决定是否加载字体
 
     Returns:
-        str: 字体家族名称，如果加载失败则返回 None
+        Optional[str]: 字体家族名称，如果加载失败则返回 None
     """
-    if hasattr(load_custom_font, "_font_cache") and load_custom_font._font_cache:
-        return load_custom_font._font_cache
+    if hasattr(load_custom_font, FONT_CACHE_KEY):
+        cache = getattr(load_custom_font, FONT_CACHE_KEY)
+        if cache:
+            return cache
 
     try:
         custom_settings_path = get_settings_path()
         font_family_setting = _get_font_family_setting(custom_settings_path)
 
-        # 根据字体设置加载相应字体
         if font_family_setting:
             font_family = _load_font_by_setting(font_family_setting)
             if font_family:
-                load_custom_font._font_cache = font_family
+                setattr(load_custom_font, FONT_CACHE_KEY, font_family)
                 return font_family
 
         font_family = _load_default_font()
-        load_custom_font._font_cache = font_family
+        setattr(load_custom_font, FONT_CACHE_KEY, font_family)
         return font_family
     except Exception as e:
         logger.exception(f"读取自定义设置失败，使用默认字体: {e}")
         font_family = _load_default_font()
-        load_custom_font._font_cache = font_family
+        setattr(load_custom_font, FONT_CACHE_KEY, font_family)
         return font_family
 
 
-def _get_font_family_setting(settings_path):
+def _get_font_family_setting(settings_path) -> str:
     """从设置文件中获取字体家族设置
 
     Args:
@@ -71,27 +72,19 @@ def _get_font_family_setting(settings_path):
         return ""
 
 
-def _load_font_by_setting(font_family_setting):
+def _load_font_by_setting(font_family_setting: str) -> Optional[str]:
     """根据字体设置加载对应的字体
 
     Args:
         font_family_setting: 字体家族设置
 
     Returns:
-        str: 加载成功的字体家族名称，失败则返回 None
+        Optional[str]: 加载成功的字体家族名称，失败则返回 None
     """
-    # 获取字体粗细设置
-    from app.tools.settings_access import readme_settings_async
-
     font_weight_value = readme_settings_async("basic_settings", "font_weight")
     font_weight_int = int(font_weight_value) if font_weight_value else 3
 
-    font_map = {
-        "HarmonyOS Sans SC": None,  # 特殊处理，使用字体粗细
-    }
-
-    if font_family_setting == "HarmonyOS Sans SC":
-        # 对于默认字体，根据粗细加载对应的字体文件
+    if font_family_setting == FONT_FAMILY_DEFAULT:
         font_file = get_font_weight_file(font_weight_int)
         font_path = get_data_path("font/HarmonyOS_Sans_SC", font_file)
         font_id = QFontDatabase.addApplicationFont(str(font_path))
@@ -102,35 +95,19 @@ def _load_font_by_setting(font_family_setting):
 
         font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
         return font_family
-    elif font_family_setting in font_map:
-        font_file = font_map[font_family_setting]
-        font_path = get_data_path("font", font_file)
-        font_id = QFontDatabase.addApplicationFont(str(font_path))
-
-        if font_id < 0:
-            logger.exception(f"加载自定义字体失败: {font_path}")
-            return None
-
-        font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
-        return font_family
     else:
-        # 使用系统默认字体
         return font_family_setting
 
 
-def _load_default_font():
+def _load_default_font() -> Optional[str]:
     """加载默认字体
 
     Returns:
-        str: 加载成功的字体家族名称
+        Optional[str]: 加载成功的字体家族名称
     """
-    # 获取字体粗细设置
-    from app.tools.settings_access import readme_settings_async
-
     font_weight_value = readme_settings_async("basic_settings", "font_weight")
     font_weight_int = int(font_weight_value) if font_weight_value else 3
 
-    # 根据粗细获取对应的字体文件
     font_file = get_font_weight_file(font_weight_int)
     font_path = get_data_path("font/HarmonyOS_Sans_SC", font_file)
     font_id = QFontDatabase.addApplicationFont(str(font_path))
@@ -143,19 +120,14 @@ def _load_default_font():
     return font_family
 
 
-# ==================================================
-# 图标相关类和函数
-# ==================================================
-
-# 全局图标缓存，避免重复创建图标对象和读取JSON
-_icon_cache = {}
-_icon_map_cache = None
+_icon_cache: Dict[str, QIcon] = {}
+_icon_map_cache: Optional[Dict[str, int]] = None
 
 
 class FluentSystemIcons(FluentFontIconBase):
     """Fluent System Icons 字体图标类"""
 
-    def __init__(self, char):
+    def __init__(self, char: str):
         """初始化字体图标
 
         Args:
@@ -163,20 +135,20 @@ class FluentSystemIcons(FluentFontIconBase):
         """
         super().__init__(char)
 
-    def path(self, theme=Theme.AUTO):
+    def path(self, theme=Theme.AUTO) -> str:
         """返回字体文件路径"""
         return str(get_data_path("assets", "FluentSystemIcons-Filled.ttf"))
 
-    def iconNameMapPath(self):
+    def iconNameMapPath(self) -> str:
         """返回图标名称到图标码点的映射表文件路径"""
         return str(get_data_path("assets", "FluentSystemIcons-Filled.json"))
 
 
-def _get_icon_map():
+def _get_icon_map() -> Dict[str, int]:
     """获取图标映射表，使用缓存避免重复读取JSON
 
     Returns:
-        dict: 图标名称到码点的映射表
+        Dict[str, int]: 图标名称到码点的映射表
     """
     global _icon_map_cache
     if _icon_map_cache is None:
@@ -195,7 +167,7 @@ def _get_icon_map():
     return _icon_map_cache
 
 
-def get_theme_icon(icon_name):
+def get_theme_icon(icon_name) -> QIcon:
     """获取主题相关的图标，带缓存机制
 
     Args:
@@ -206,49 +178,61 @@ def get_theme_icon(icon_name):
     """
     global _icon_cache
 
-    # 检查缓存
     if icon_name in _icon_cache:
         return _icon_cache[icon_name]
 
     try:
-        icon = None
-        # 尝试使用名称获取图标
-        if isinstance(icon_name, str) and not icon_name.startswith("\\u"):
-            # 从缓存的映射表中获取码点
-            icon_map = _get_icon_map()
-
-            if icon_name in icon_map:
-                # 获取图标码点并转换为字符串
-                code_point = icon_map[icon_name]
-                char = chr(code_point)
-                icon = FluentSystemIcons(char)
-            else:
-                raise ValueError(f"图标名称 '{icon_name}' 未在图标映射表中找到")
-        else:
-            # 处理码点输入
-            char = _convert_icon_name_to_char(icon_name)
-            icon = FluentSystemIcons(char)
-
-        # 缓存图标
+        icon = _create_icon_from_name(icon_name)
         if icon:
             _icon_cache[icon_name] = icon
         return icon
     except Exception as e:
         logger.exception(f"加载图标{icon_name}出错: {str(e)}")
-        # 返回默认图标
-        try:
-            # 尝试使用码点创建默认图标
-            default_char = chr(DEFAULT_ICON_CODEPOINT)  # 使用info图标的码点
-            default_icon = FluentSystemIcons(default_char)
-            _icon_cache[icon_name] = default_icon
-            return default_icon
-        except Exception as default_error:
-            logger.exception(f"加载默认图标也失败: {str(default_error)}")
-            # 返回空的QIcon作为最后备选
-            return QIcon()
+        return _get_default_icon(icon_name)
 
 
-def _convert_icon_name_to_char(icon_name):
+def _create_icon_from_name(icon_name) -> Optional[QIcon]:
+    """根据图标名称或码点创建图标
+
+    Args:
+        icon_name: 图标名称或码点
+
+    Returns:
+        Optional[QIcon]: 创建的图标对象，失败则返回 None
+    """
+    if isinstance(icon_name, str) and not icon_name.startswith("\\u"):
+        icon_map = _get_icon_map()
+        if icon_name in icon_map:
+            code_point = icon_map[icon_name]
+            char = chr(code_point)
+            return FluentSystemIcons(char)
+        else:
+            raise ValueError(f"图标名称 '{icon_name}' 未在图标映射表中找到")
+    else:
+        char = _convert_icon_name_to_char(icon_name)
+        return FluentSystemIcons(char)
+
+
+def _get_default_icon(icon_name) -> QIcon:
+    """获取默认图标
+
+    Args:
+        icon_name: 原始图标名称（用于缓存）
+
+    Returns:
+        QIcon: 默认图标对象
+    """
+    try:
+        default_char = chr(DEFAULT_ICON_CODEPOINT)
+        default_icon = FluentSystemIcons(default_char)
+        _icon_cache[icon_name] = default_icon
+        return default_icon
+    except Exception as default_error:
+        logger.exception(f"加载默认图标也失败: {str(default_error)}")
+        return QIcon()
+
+
+def _convert_icon_name_to_char(icon_name) -> str:
     """将图标名称或码点转换为字符
 
     Args:
@@ -258,21 +242,15 @@ def _convert_icon_name_to_char(icon_name):
         str: 图标字符
     """
     if isinstance(icon_name, str) and icon_name.startswith("\\u"):
-        # 将Unicode字符串转换为字符
         code_point = int(icon_name[2:], 16)
         return chr(code_point)
     elif isinstance(icon_name, int):
-        # 将整数码点转换为字符
         return chr(icon_name)
     else:
-        # 直接使用字符
         return icon_name
 
 
-# ==================================================
-# 主题相关函数
-# ==================================================
-def is_dark_theme(qconfig):
+def is_dark_theme(qconfig) -> bool:
     """判断当前是否为深色主题
 
     Args:
@@ -288,7 +266,7 @@ def is_dark_theme(qconfig):
         return qconfig.theme == Theme.DARK
 
 
-def setThemeColor(color):
+def setThemeColor(color) -> None:
     """设置主题色
 
     Args:
@@ -298,46 +276,40 @@ def setThemeColor(color):
     if hex_color is None:
         return
 
-    # 设置主题色
     themeColor.value = hex_color
-    # 保存配置
     update_settings("basic_settings", "theme_color", hex_color)
 
 
-def themeColor():
+def themeColor() -> str:
     """获取当前主题色
 
     Returns:
         str: 十六进制格式的主题色
     """
     try:
-        # 获取当前主题色
         return themeColor.value
     except Exception as e:
         logger.exception(f"获取主题色失败: {e}")
-        # 返回默认主题色
         return FALLBACK_THEME_COLOR
 
 
-def _convert_color_to_hex(color):
+def _convert_color_to_hex(color) -> Optional[str]:
     """将各种格式的颜色转换为十六进制格式
 
     Args:
         color: 颜色对象，可以是 QColor、Qt.GlobalColor 或字符串
 
     Returns:
-        str: 十六进制格式的颜色，转换失败则返回 None
+        Optional[str]: 十六进制格式的颜色，转换失败则返回 None
     """
     if isinstance(color, QColor):
         return color.name()
     elif isinstance(color, Qt.GlobalColor):
         return QColor(color).name()
     elif isinstance(color, str):
-        # 检查是否是十六进制颜色
         if color.startswith("#"):
             return color
         else:
-            # 尝试解析颜色名称
             qcolor = QColor(color)
             if qcolor.isValid():
                 return qcolor.name()

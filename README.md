@@ -101,7 +101,7 @@
 
 ### 🌐 官方下载页面
 
-- 📥 **[官方下载页面](https://secrandom.netlify.app/download)** - 获取最新稳定版本和测试版本
+- 📥 **[官方下载页面](https://secrandom.sectl.top/download.html)** - 获取最新稳定版本和测试版本
 
 ## 📸 软件截图
 
@@ -177,7 +177,7 @@
 
 ## 📄 官方文档
 
-- 📄 **[SecRandom 官方文档](https://secrandom.netlify.app)**
+- 📄 **[SecRandom 官方文档](https://secrandom.sectl.top/doc/overview.html)**
 - [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/SECTL/SecRandom)
 
 ## 贡献指南与 Actions 构建工作流

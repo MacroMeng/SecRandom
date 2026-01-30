@@ -114,7 +114,7 @@ def _apply_system_font(font_family: str, font_weight: int) -> str:
                 current_font.family() != font_family
                 or current_font.weight() != app_font.weight()
             ):
-                new_font = app_font
+                new_font = QFont(app_font)  # 创建新的字体对象，保留字重
                 new_font.setBold(current_font.bold())
                 new_font.setItalic(current_font.italic())
                 widget.setFont(new_font)
@@ -185,7 +185,7 @@ def apply_font_to_application(font_family: str) -> None:
         font_family: 字体家族名称
     """
     current_font = QApplication.font()
-    app_font = current_font
+    app_font = QFont(current_font)  # 创建新的字体对象，保留原有属性
     app_font.setFamily(font_family)
 
     widgets_updated = 0
@@ -225,7 +225,7 @@ def update_widget_fonts(widget: Optional[QWidget], font, font_family: str) -> bo
     if current_widget_font.family() == font_family:
         return False
 
-    new_font = font
+    new_font = QFont(font)  # 创建新的字体对象，保留字重等属性
     new_font.setBold(current_widget_font.bold())
     new_font.setItalic(current_widget_font.italic())
     widget.setFont(new_font)

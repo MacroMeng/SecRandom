@@ -7,7 +7,7 @@ import platform
 
 import sentry_sdk
 from sentry_sdk.integrations.loguru import LoguruIntegration, LoggingLevels
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, qInstallMessageHandler
 from PySide6.QtWidgets import QApplication
 from loguru import logger
 
@@ -31,7 +31,10 @@ from app.core.single_instance import (
     setup_local_server,
     send_url_to_existing_instance,
 )
-from app.core.font_manager import configure_dpi_scale
+from app.core.font_manager import (
+    configure_dpi_scale,
+    ensure_application_font_point_size,
+)
 from app.core.window_manager import WindowManager
 from app.core.url_handler_setup import create_url_handler
 from app.core.cs_ipc_handler_setup import create_cs_ipc_handler
@@ -262,6 +265,19 @@ def setup_qt_application():
     configure_dpi_scale()
 
     app = QApplication(sys.argv)
+    handler_holder = {"previous_handler": None}
+
+    def qt_message_handler(mode, context, message):
+        if str(message).startswith("QFont::setPointSize: Point size <= 0"):
+            return
+        previous_handler = handler_holder.get("previous_handler")
+        if previous_handler is not None:
+            previous_handler(mode, context, message)
+        else:
+            sys.__stderr__.write(f"{message}\n")
+
+    handler_holder["previous_handler"] = qInstallMessageHandler(qt_message_handler)
+    ensure_application_font_point_size()
 
     gc.enable()
 

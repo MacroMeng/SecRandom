@@ -25,6 +25,9 @@ class BackgroundLayer(QWidget):
         self._target = str(target or "").strip()
         self._mode = 0
         self._color = QColor("#ffffff")
+        self._gradient_start = QColor("#66CCFF")
+        self._gradient_end = QColor("#ffffff")
+        self._gradient_direction = 0
         self._image_path = ""
         self._brightness = 100
         self._opacity = 100
@@ -48,6 +51,18 @@ class BackgroundLayer(QWidget):
         prefix = f"{self._target}_background_"
         mode = readme_settings_async("background_management", f"{prefix}mode")
         color = readme_settings_async("background_management", f"{prefix}color")
+        gradient_start = readme_settings_async(
+            "background_management", f"{prefix}gradient_start"
+        )
+        gradient_end = readme_settings_async(
+            "background_management", f"{prefix}gradient_end"
+        )
+        gradient_direction = readme_settings_async(
+            "background_management", f"{prefix}gradient_direction"
+        )
+        gradient_direction_v2 = readme_settings_async(
+            "background_management", f"{prefix}gradient_direction_v2"
+        )
         image_path = readme_settings_async("background_management", f"{prefix}image")
         brightness = readme_settings_async(
             "background_management", f"{prefix}brightness"
@@ -71,6 +86,43 @@ class BackgroundLayer(QWidget):
                 self._color = QColor("#ffffff")
         except Exception:
             self._color = QColor("#ffffff")
+
+        try:
+            self._gradient_start = QColor(str(gradient_start or color or "#66CCFF"))
+            if not self._gradient_start.isValid():
+                self._gradient_start = QColor("#66CCFF")
+        except Exception:
+            self._gradient_start = QColor("#66CCFF")
+
+        try:
+            self._gradient_end = QColor(str(gradient_end or "#ffffff"))
+            if not self._gradient_end.isValid():
+                self._gradient_end = QColor("#ffffff")
+        except Exception:
+            self._gradient_end = QColor("#ffffff")
+
+        try:
+            self._gradient_direction = (
+                int(gradient_direction) if gradient_direction is not None else 0
+            )
+        except Exception:
+            self._gradient_direction = 0
+        if not bool(gradient_direction_v2):
+            old_to_new = {0: 0, 1: 2, 2: 4, 3: 6}
+            update_settings(
+                "background_management",
+                f"{prefix}gradient_direction_v2",
+                True,
+            )
+            mapped = old_to_new.get(self._gradient_direction, self._gradient_direction)
+            if mapped != self._gradient_direction:
+                self._gradient_direction = mapped
+                update_settings(
+                    "background_management",
+                    f"{prefix}gradient_direction",
+                    int(self._gradient_direction),
+                )
+        self._gradient_direction = max(0, min(7, self._gradient_direction))
 
         self._image_path = str(image_path or "")
 
@@ -272,6 +324,40 @@ class BackgroundLayer(QWidget):
             c = QColor(self._color)
             c.setAlpha(int(opacity * 255))
             painter.fillRect(self.rect(), c)
+            return
+
+        if self._mode == 3:
+            sc = QColor(self._gradient_start)
+            ec = QColor(self._gradient_end)
+            sc.setAlpha(int(opacity * 255))
+            ec.setAlpha(int(opacity * 255))
+
+            w = self.width()
+            h = self.height()
+            if w <= 0 or h <= 0:
+                return
+
+            d = int(getattr(self, "_gradient_direction", 0))
+            if d == 1:
+                gradient = QLinearGradient(0, h, 0, 0)
+            elif d == 2:
+                gradient = QLinearGradient(0, 0, w, 0)
+            elif d == 3:
+                gradient = QLinearGradient(w, 0, 0, 0)
+            elif d == 4:
+                gradient = QLinearGradient(0, 0, w, h)
+            elif d == 5:
+                gradient = QLinearGradient(w, h, 0, 0)
+            elif d == 6:
+                gradient = QLinearGradient(w, 0, 0, h)
+            elif d == 7:
+                gradient = QLinearGradient(0, h, w, 0)
+            else:
+                gradient = QLinearGradient(0, 0, 0, h)
+
+            gradient.setColorAt(0.0, sc)
+            gradient.setColorAt(1.0, ec)
+            painter.fillRect(self.rect(), gradient)
             return
 
         if self._mode == 2:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 from PySide6.QtCore import Qt, QEvent, QTimer
-from PySide6.QtGui import QColor, QImage, QMovie, QPainter, QPixmap
+from PySide6.QtGui import QColor, QImage, QLinearGradient, QMovie, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -142,6 +142,7 @@ class _BackgroundGroup(GroupHeaderCardWidget):
                 color.name(),
             )
         )
+        self.colorItem.valueChanged.connect(lambda _color: self._refresh_preview())
 
         self.colorCard = ColorSettingCard(
             self.colorItem,
@@ -152,6 +153,126 @@ class _BackgroundGroup(GroupHeaderCardWidget):
             ),
             parent=self,
         )
+
+        gradient_start = readme_settings_async(
+            "background_management", f"{self._target}_background_gradient_start"
+        )
+        if not gradient_start:
+            gradient_start = readme_settings_async(
+                "background_management", f"{self._target}_background_color"
+            )
+        gradient_end = readme_settings_async(
+            "background_management", f"{self._target}_background_gradient_end"
+        )
+
+        self.gradientStartItem = ColorConfigItem(
+            "background_management",
+            f"{self._target}_background_gradient_start",
+            gradient_start or "#66CCFF",
+        )
+        self.gradientStartItem.valueChanged.connect(
+            lambda color: update_settings(
+                "background_management",
+                f"{self._target}_background_gradient_start",
+                color.name(),
+            )
+        )
+        self.gradientStartItem.valueChanged.connect(
+            lambda _color: self._refresh_preview()
+        )
+        self.gradientStartCard = ColorSettingCard(
+            self.gradientStartItem,
+            get_theme_icon("ic_fluent_color_20_filled"),
+            self.tr(
+                get_content_name_async("theme_management", "background_gradient_start")
+            ),
+            self.tr(
+                get_content_description_async(
+                    "theme_management", "background_gradient_start"
+                )
+            ),
+            parent=self,
+        )
+
+        self.gradientEndItem = ColorConfigItem(
+            "background_management",
+            f"{self._target}_background_gradient_end",
+            gradient_end or "#ffffff",
+        )
+        self.gradientEndItem.valueChanged.connect(
+            lambda color: update_settings(
+                "background_management",
+                f"{self._target}_background_gradient_end",
+                color.name(),
+            )
+        )
+        self.gradientEndItem.valueChanged.connect(
+            lambda _color: self._refresh_preview()
+        )
+        self.gradientEndCard = ColorSettingCard(
+            self.gradientEndItem,
+            get_theme_icon("ic_fluent_color_20_filled"),
+            self.tr(
+                get_content_name_async("theme_management", "background_gradient_end")
+            ),
+            self.tr(
+                get_content_description_async(
+                    "theme_management", "background_gradient_end"
+                )
+            ),
+            parent=self,
+        )
+
+        self.gradientDirectionCard = SettingCard(
+            get_theme_icon("ic_fluent_arrow_right_20_filled"),
+            get_content_name_async("theme_management", "background_gradient_direction"),
+            get_content_description_async(
+                "theme_management", "background_gradient_direction"
+            ),
+            parent=self,
+        )
+        self.gradientDirectionCombo = ComboBox(self.gradientDirectionCard)
+        self.gradientDirectionCombo.addItems(
+            get_content_combo_name_async(
+                "theme_management", "background_gradient_direction"
+            )
+        )
+        gradient_direction = readme_settings_async(
+            "background_management", f"{self._target}_background_gradient_direction"
+        )
+        gradient_direction_v2 = readme_settings_async(
+            "background_management",
+            f"{self._target}_background_gradient_direction_v2",
+        )
+        try:
+            gradient_direction = (
+                int(gradient_direction) if gradient_direction is not None else 0
+            )
+        except Exception:
+            gradient_direction = 0
+        if not bool(gradient_direction_v2):
+            old_to_new = {0: 0, 1: 2, 2: 4, 3: 6}
+            update_settings(
+                "background_management",
+                f"{self._target}_background_gradient_direction_v2",
+                True,
+            )
+            mapped = old_to_new.get(gradient_direction, gradient_direction)
+            if mapped != gradient_direction:
+                gradient_direction = mapped
+                update_settings(
+                    "background_management",
+                    f"{self._target}_background_gradient_direction",
+                    int(gradient_direction),
+                )
+        self.gradientDirectionCombo.setCurrentIndex(max(0, min(7, gradient_direction)))
+        self.gradientDirectionCombo.currentIndexChanged.connect(
+            self._on_gradient_direction_changed
+        )
+        self.gradientDirectionCard.hBoxLayout.addWidget(
+            self.gradientDirectionCombo, 0, Qt.AlignmentFlag.AlignRight
+        )
+        self.gradientDirectionCard.hBoxLayout.addSpacing(16)
 
         self.imageCard = SettingCard(
             get_theme_icon("ic_fluent_image_20_filled"),
@@ -309,6 +430,9 @@ class _BackgroundGroup(GroupHeaderCardWidget):
             self.modeCombo,
         )
         self.vBoxLayout.addWidget(self.colorCard)
+        self.vBoxLayout.addWidget(self.gradientStartCard)
+        self.vBoxLayout.addWidget(self.gradientEndCard)
+        self.vBoxLayout.addWidget(self.gradientDirectionCard)
         self.vBoxLayout.addWidget(self.imageCard)
         self.vBoxLayout.addWidget(self.blurCard)
         self.vBoxLayout.addWidget(self.blurRadiusCard)
@@ -391,15 +515,67 @@ class _BackgroundGroup(GroupHeaderCardWidget):
         )
         self._refresh_preview()
 
+    def _on_gradient_direction_changed(self, index: int):
+        update_settings(
+            "background_management",
+            f"{self._target}_background_gradient_direction",
+            int(index),
+        )
+        update_settings(
+            "background_management",
+            f"{self._target}_background_gradient_direction_v2",
+            True,
+        )
+        self._refresh_preview()
+
     def _refresh_enabled_state(self):
         mode = self.modeCombo.currentIndex()
         self.colorCard.setEnabled(mode == 1 or mode == 2)
+        self.gradientStartCard.setEnabled(mode == 3)
+        self.gradientEndCard.setEnabled(mode == 3)
+        self.gradientDirectionCard.setEnabled(mode == 3)
         self.imageCard.setEnabled(mode == 2)
-        self.blurCard.setEnabled(mode == 1 or mode == 2)
+        self.blurCard.setEnabled(mode == 1 or mode == 2 or mode == 3)
         self.blurRadiusCard.setEnabled(
-            (mode == 1 or mode == 2) and self.blurSwitch.isChecked()
+            (mode == 1 or mode == 2 or mode == 3) and self.blurSwitch.isChecked()
         )
         self.brightnessCard.setEnabled(mode == 2)
+
+    def _render_gradient_preview_pixmap(self) -> QPixmap:
+        size = self.previewLabel.size()
+        pix = QPixmap(size)
+        pix.fill(Qt.GlobalColor.transparent)
+
+        w = size.width()
+        h = size.height()
+        if w <= 0 or h <= 0:
+            return pix
+
+        direction = self.gradientDirectionCombo.currentIndex()
+        if direction == 1:
+            gradient = QLinearGradient(0, h, 0, 0)
+        elif direction == 2:
+            gradient = QLinearGradient(0, 0, w, 0)
+        elif direction == 3:
+            gradient = QLinearGradient(w, 0, 0, 0)
+        elif direction == 4:
+            gradient = QLinearGradient(0, 0, w, h)
+        elif direction == 5:
+            gradient = QLinearGradient(w, h, 0, 0)
+        elif direction == 6:
+            gradient = QLinearGradient(w, 0, 0, h)
+        elif direction == 7:
+            gradient = QLinearGradient(0, h, w, 0)
+        else:
+            gradient = QLinearGradient(0, 0, 0, h)
+
+        gradient.setColorAt(0.0, self.gradientStartItem.value)
+        gradient.setColorAt(1.0, self.gradientEndItem.value)
+
+        p = QPainter(pix)
+        p.fillRect(pix.rect(), gradient)
+        p.end()
+        return pix
 
     def _blur_pixmap(self, pix: QPixmap, radius: int) -> QPixmap:
         if pix.isNull():
@@ -539,6 +715,15 @@ class _BackgroundGroup(GroupHeaderCardWidget):
             p = QPainter(pix)
             p.fillRect(pix.rect(), self.colorItem.value)
             p.end()
+            if self.blurSwitch.isChecked() and self.blurRadiusSlider.value() > 0:
+                pix = self._blur_pixmap(pix, self.blurRadiusSlider.value())
+            self.previewLabel.setPixmap(pix)
+            self.previewLabel.setText("")
+            return
+
+        if mode == 3:
+            self._stop_preview_movie()
+            pix = self._render_gradient_preview_pixmap()
             if self.blurSwitch.isChecked() and self.blurRadiusSlider.value() > 0:
                 pix = self._blur_pixmap(pix, self.blurRadiusSlider.value())
             self.previewLabel.setPixmap(pix)

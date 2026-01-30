@@ -228,8 +228,13 @@ class LevitationWindow(QWidget):
             flags |= Qt.WindowDoesNotAcceptFocus
         self.setWindowFlags(flags)
         if self.isVisible():
-            self.hide()
-            self.show()
+            prev_suppress = bool(getattr(self, "_suppress_visibility_tracking", False))
+            self._suppress_visibility_tracking = True
+            try:
+                self.hide()
+                self.show()
+            finally:
+                self._suppress_visibility_tracking = prev_suppress
 
     def _apply_topmost_runtime(self):
         mode = int(getattr(self, "_topmost_mode", 1) or 0)
@@ -486,6 +491,118 @@ class LevitationWindow(QWidget):
 
         # 贴边隐藏功能配置
         self._init_edge_hide_settings()
+        self._init_foreground_hide_settings()
+
+        # 联动：下课隐藏浮窗设置
+        self._init_class_linkage_settings()
+
+        self._user_requested_visible = bool(self._visible_on_start)
+
+    def _init_class_linkage_settings(self):
+        """初始化联动设置：下课隐藏浮窗"""
+        try:
+            self._hide_on_class_end_enabled = bool(
+                self._get_bool_setting(
+                    "linkage_settings", "hide_floating_window_on_class_end", False
+                )
+            )
+        except Exception:
+            self._hide_on_class_end_enabled = False
+
+        # 状态跟踪
+        self._hidden_by_class_end = False
+        self._pre_class_hide_main_visible = False
+        self._pre_class_hide_storage_visible = False
+
+        # 定时检查器（默认 30 秒）
+        self._class_hide_timer = QTimer(self)
+        self._class_hide_timer.setInterval(30 * 1000)
+        self._class_hide_timer.timeout.connect(self._check_class_end_hide)
+        self._apply_class_hide_timer_state()
+
+    def _apply_class_hide_timer_state(self):
+        try:
+            if bool(getattr(self, "_hide_on_class_end_enabled", False)):
+                if not self._class_hide_timer.isActive():
+                    self._class_hide_timer.start()
+                QTimer.singleShot(0, self._check_class_end_hide)
+            else:
+                if hasattr(self, "_class_hide_timer") and self._class_hide_timer:
+                    if self._class_hide_timer.isActive():
+                        self._class_hide_timer.stop()
+                # 如果设置被关闭，确保恢复先前的可见性
+                self._apply_class_hidden(False)
+        except Exception:
+            pass
+
+    def _check_class_end_hide(self):
+        """检查是否为下课/非上课时间并应用隐藏逻辑"""
+        try:
+            if not bool(getattr(self, "_hide_on_class_end_enabled", False)):
+                return
+            is_non_class = False
+            try:
+                is_non_class = bool(_is_non_class_time())
+            except Exception:
+                is_non_class = False
+            self._apply_class_hidden(bool(is_non_class))
+        except Exception:
+            pass
+
+    def _apply_class_hidden(self, hidden: bool):
+        """根据下课检测结果隐藏或恢复浮窗（记录并恢复之前可见性）"""
+        hidden = bool(hidden)
+        if hidden == bool(getattr(self, "_hidden_by_class_end", False)):
+            return
+
+        self._hidden_by_class_end = hidden
+
+        if hidden:
+            # 记录之前可见性
+            self._pre_class_hide_main_visible = bool(self.isVisible())
+            self._pre_class_hide_storage_visible = bool(
+                hasattr(self, "arrow_widget")
+                and self.arrow_widget
+                and self.arrow_widget.isVisible()
+            )
+
+            self._suppress_visibility_tracking = True
+            try:
+                if self.isVisible():
+                    self.hide()
+                if (
+                    hasattr(self, "arrow_widget")
+                    and self.arrow_widget
+                    and self.arrow_widget.isVisible()
+                ):
+                    self.arrow_widget.hide()
+            finally:
+                self._suppress_visibility_tracking = False
+            return
+
+        # 恢复可见性：仅在用户曾经期望可见时恢复
+        should_show_main = bool(
+            getattr(self, "_user_requested_visible", False)
+            and getattr(self, "_pre_class_hide_main_visible", False)
+        )
+        should_show_storage = bool(
+            getattr(self, "_user_requested_visible", False)
+            and getattr(self, "_pre_class_hide_storage_visible", False)
+        )
+
+        self._suppress_visibility_tracking = True
+        try:
+            if should_show_main and not self.isVisible():
+                self.show()
+            if (
+                should_show_storage
+                and hasattr(self, "arrow_widget")
+                and self.arrow_widget
+                and not self.arrow_widget.isVisible()
+            ):
+                self.arrow_widget.show()
+        finally:
+            self._suppress_visibility_tracking = False
 
     def _get_bool_setting(self, section: str, key: str, default: bool = False) -> bool:
         """获取布尔类型设置"""
@@ -514,6 +631,184 @@ class LevitationWindow(QWidget):
         self._retracted = False
 
         logger.debug(f"贴边隐藏功能配置: {self.floating_window_stick_to_edge}")
+
+    def _init_foreground_hide_settings(self):
+        self._hide_on_foreground_enabled = self._get_bool_setting(
+            "floating_window_management", "hide_floating_window_on_foreground", False
+        )
+        self._hide_on_foreground_title_raw = str(
+            readme_settings_async(
+                "floating_window_management",
+                "hide_floating_window_on_foreground_window_titles",
+            )
+            or ""
+        )
+        self._hide_on_foreground_process_raw = str(
+            readme_settings_async(
+                "floating_window_management",
+                "hide_floating_window_on_foreground_process_names",
+            )
+            or ""
+        )
+        self._hide_on_foreground_titles = self._split_match_list(
+            self._hide_on_foreground_title_raw
+        )
+        self._hide_on_foreground_processes = self._split_match_list(
+            self._hide_on_foreground_process_raw
+        )
+
+        self._hidden_by_foreground_match = False
+        self._pre_foreground_hide_main_visible = False
+        self._pre_foreground_hide_storage_visible = False
+        self._suppress_visibility_tracking = False
+
+        self._foreground_hide_timer = QTimer(self)
+        self._foreground_hide_timer.setInterval(250)
+        self._foreground_hide_timer.timeout.connect(self._check_foreground_hide)
+        self._apply_foreground_hide_timer_state()
+
+    def _apply_foreground_hide_timer_state(self):
+        try:
+            if bool(getattr(self, "_hide_on_foreground_enabled", False)):
+                if not self._foreground_hide_timer.isActive():
+                    self._foreground_hide_timer.start()
+                QTimer.singleShot(0, self._check_foreground_hide)
+            else:
+                if (
+                    hasattr(self, "_foreground_hide_timer")
+                    and self._foreground_hide_timer
+                ):
+                    if self._foreground_hide_timer.isActive():
+                        self._foreground_hide_timer.stop()
+                self._apply_foreground_hidden(False)
+        except Exception:
+            pass
+
+    def _split_match_list(self, raw_text: str) -> list[str]:
+        text = str(raw_text or "").strip()
+        if not text:
+            return []
+        items = []
+        for part in text.replace("\n", ";").split(";"):
+            s = str(part or "").strip()
+            if not s:
+                continue
+            items.append(s.lower())
+        return items
+
+    def _get_foreground_info(self) -> tuple[str, str, int]:
+        try:
+            user32 = ctypes.WinDLL("user32", use_last_error=True)
+            hwnd = user32.GetForegroundWindow()
+            if not hwnd:
+                return "", "", 0
+
+            length = int(user32.GetWindowTextLengthW(hwnd) or 0)
+            buf = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buf, length + 1)
+            title = str(buf.value or "")
+
+            pid = ctypes.c_ulong(0)
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            pid_int = int(pid.value or 0)
+
+            process_name = ""
+            try:
+                if pid_int and pid_int != os.getpid():
+                    import psutil
+
+                    process_name = str(psutil.Process(pid_int).name() or "")
+            except Exception:
+                process_name = ""
+
+            return title, process_name, pid_int
+        except Exception:
+            return "", "", 0
+
+    def _check_foreground_hide(self):
+        if not bool(getattr(self, "_hide_on_foreground_enabled", False)):
+            return
+
+        title, proc, pid = self._get_foreground_info()
+        if pid == os.getpid():
+            self._apply_foreground_hidden(False)
+            return
+
+        title_l = str(title or "").lower()
+        proc_l = str(proc or "").lower()
+
+        matched = False
+        if title_l and self._hide_on_foreground_titles:
+            matched = any(t and t in title_l for t in self._hide_on_foreground_titles)
+        if not matched and proc_l and self._hide_on_foreground_processes:
+            matched = any(p and p in proc_l for p in self._hide_on_foreground_processes)
+
+        self._apply_foreground_hidden(bool(matched))
+
+    def _apply_foreground_hidden(self, hidden: bool):
+        hidden = bool(hidden)
+        if hidden == bool(getattr(self, "_hidden_by_foreground_match", False)):
+            return
+
+        self._hidden_by_foreground_match = hidden
+
+        if hidden:
+            self._pre_foreground_hide_main_visible = bool(self.isVisible())
+            self._pre_foreground_hide_storage_visible = bool(
+                hasattr(self, "arrow_widget")
+                and self.arrow_widget
+                and self.arrow_widget.isVisible()
+            )
+
+            self._suppress_visibility_tracking = True
+            try:
+                if self.isVisible():
+                    self.hide()
+                if (
+                    hasattr(self, "arrow_widget")
+                    and self.arrow_widget
+                    and self.arrow_widget.isVisible()
+                ):
+                    self.arrow_widget.hide()
+            finally:
+                self._suppress_visibility_tracking = False
+            return
+
+        should_show_main = bool(
+            getattr(self, "_user_requested_visible", False)
+            and getattr(self, "_pre_foreground_hide_main_visible", False)
+        )
+        should_show_storage = bool(
+            getattr(self, "_user_requested_visible", False)
+            and getattr(self, "_pre_foreground_hide_storage_visible", False)
+        )
+
+        self._suppress_visibility_tracking = True
+        try:
+            if should_show_main and not self.isVisible():
+                self.show()
+            if (
+                should_show_storage
+                and hasattr(self, "arrow_widget")
+                and self.arrow_widget
+                and not self.arrow_widget.isVisible()
+            ):
+                self.arrow_widget.show()
+        finally:
+            self._suppress_visibility_tracking = False
+
+    def is_user_requested_visible(self) -> bool:
+        return bool(getattr(self, "_user_requested_visible", False))
+
+    def toggle_user_requested_visible(self) -> None:
+        self.set_user_requested_visible(not self.is_user_requested_visible())
+
+    def set_user_requested_visible(self, visible: bool) -> None:
+        self._user_requested_visible = bool(visible)
+        if self._user_requested_visible:
+            super().show()
+        else:
+            super().hide()
 
     def _apply_size_setting(self, size_idx: int):
         """应用浮窗大小设置
@@ -624,6 +919,8 @@ class LevitationWindow(QWidget):
     def showEvent(self, event):
         """重写showEvent，当浮窗显示时检测边缘"""
         super().showEvent(event)
+        if not bool(getattr(self, "_suppress_visibility_tracking", False)):
+            self._user_requested_visible = True
         QTimer.singleShot(100, self._check_edge_proximity)
         try:
             self._uia_band_applied = False
@@ -634,6 +931,8 @@ class LevitationWindow(QWidget):
 
     def hideEvent(self, event):
         super().hideEvent(event)
+        if not bool(getattr(self, "_suppress_visibility_tracking", False)):
+            self._user_requested_visible = False
         self._apply_topmost_runtime()
 
     def _apply_position(self):
@@ -1353,13 +1652,39 @@ class LevitationWindow(QWidget):
 
     def _delete_storage_window(self):
         """删除收纳浮窗"""
-        if hasattr(self, "storage_window") and self.storage_window:
-            self.storage_window.deleteLater()
-            self.storage_window = None
-        # 同时删除arrow_widget引用
-        if hasattr(self, "arrow_widget") and self.arrow_widget:
-            self.arrow_widget.deleteLater()
-            self.arrow_widget = None
+        # 安全删除 storage_window 与 arrow_widget（它们可能指向相同对象）
+        storage = getattr(self, "storage_window", None)
+        arrow_w = getattr(self, "arrow_widget", None)
+
+        # 如果 storage 存在，先记录引用再删除
+        if storage:
+            try:
+                storage.deleteLater()
+            except Exception:
+                pass
+            finally:
+                try:
+                    self.storage_window = None
+                except Exception:
+                    pass
+
+        # 如果 arrow_widget 存在并且不是已被上述 storage 删除的同一对象，则删除
+        if arrow_w and arrow_w is not storage:
+            try:
+                arrow_w.deleteLater()
+            except Exception:
+                pass
+            finally:
+                try:
+                    self.arrow_widget = None
+                except Exception:
+                    pass
+        else:
+            # 如果它们是同一对象，上面已删除，仍确保引用清除
+            try:
+                self.arrow_widget = None
+            except Exception:
+                pass
 
     def _on_storage_press(self, event):
         """收纳浮窗按下事件 - 增强拖动体验"""
@@ -1788,15 +2113,41 @@ class LevitationWindow(QWidget):
 
     def _delete_arrow_button(self):
         """删除箭头按钮"""
-        # 删除箭头按钮容器
-        if hasattr(self, "arrow_widget") and self.arrow_widget:
-            self.arrow_widget.deleteLater()
-            self.arrow_widget = None
+        # 删除箭头按钮容器和按钮
+        # 保存当前的容器引用，用于判断按钮的父对象
+        parent_widget = getattr(self, "arrow_widget", None)
 
-        # 删除箭头按钮
-        if hasattr(self, "arrow_button") and self.arrow_button:
-            self.arrow_button.deleteLater()
-            self.arrow_button = None
+        # 先删除容器（如果存在），因为容器删除会同时删除其子对象
+        if parent_widget:
+            try:
+                parent_widget.deleteLater()
+            except Exception:
+                pass
+            finally:
+                # 清除属性引用
+                try:
+                    self.arrow_widget = None
+                except Exception:
+                    pass
+
+        # 再删除按钮，但避免在按钮已经被容器删除的情况下再次删除导致错误
+        arrow_btn = getattr(self, "arrow_button", None)
+        if arrow_btn:
+            try:
+                # 如果按钮的父对象不是原来的 container（parent_widget），说明容器删除可能已处理子对象
+                btn_parent = arrow_btn.parent()
+            except Exception:
+                btn_parent = None
+            if btn_parent is None or btn_parent is not parent_widget:
+                try:
+                    arrow_btn.deleteLater()
+                except Exception:
+                    pass
+            # 最后清除按钮引用
+            try:
+                self.arrow_button = None
+            except Exception:
+                pass
 
     def _on_setting_changed(self, first, second, value):
         if first == "floating_window_management":
@@ -1859,11 +2210,84 @@ class LevitationWindow(QWidget):
                 self._buttons_spec = self._map_button_control(int(value or 0))
                 self.rebuild_ui()
             elif second == "do_not_steal_focus":
+                try:
+                    cur_main_visible = bool(self.isVisible())
+                except Exception:
+                    cur_main_visible = False
+                try:
+                    cur_arrow_visible = bool(
+                        hasattr(self, "arrow_widget")
+                        and self.arrow_widget
+                        and self.arrow_widget.isVisible()
+                    )
+                except Exception:
+                    cur_arrow_visible = False
+
                 self._do_not_steal_focus = bool(value)
                 self._apply_focus_mode()
                 self._apply_topmost_runtime()
+
+                # 恢复之前的可见性状态，过程中抑制可见性跟踪
+                try:
+                    prev = bool(getattr(self, "_suppress_visibility_tracking", False))
+                    self._suppress_visibility_tracking = True
+                    try:
+                        if cur_main_visible and not self.isVisible():
+                            try:
+                                self.show()
+                            except Exception:
+                                pass
+                        elif not cur_main_visible and self.isVisible():
+                            try:
+                                self.hide()
+                            except Exception:
+                                pass
+
+                        if hasattr(self, "arrow_widget") and self.arrow_widget:
+                            try:
+                                if (
+                                    cur_arrow_visible
+                                    and not self.arrow_widget.isVisible()
+                                ):
+                                    self.arrow_widget.show()
+                                elif (
+                                    not cur_arrow_visible
+                                    and self.arrow_widget.isVisible()
+                                ):
+                                    self.arrow_widget.hide()
+                            except Exception:
+                                pass
+                    finally:
+                        self._suppress_visibility_tracking = prev
+                except Exception:
+                    pass
+            elif second == "hide_floating_window_on_foreground":
+                self._hide_on_foreground_enabled = bool(value)
+                self._apply_foreground_hide_timer_state()
+            elif second == "hide_floating_window_on_foreground_window_titles":
+                self._hide_on_foreground_title_raw = str(value or "")
+                self._hide_on_foreground_titles = self._split_match_list(
+                    self._hide_on_foreground_title_raw
+                )
+                QTimer.singleShot(0, self._check_foreground_hide)
+            elif second == "hide_floating_window_on_foreground_process_names":
+                self._hide_on_foreground_process_raw = str(value or "")
+                self._hide_on_foreground_processes = self._split_match_list(
+                    self._hide_on_foreground_process_raw
+                )
+                QTimer.singleShot(0, self._check_foreground_hide)
             # 当任何影响外观的设置改变时，重新应用主题样式
             self._apply_theme_style()
+        elif first == "linkage_settings":
+            # 处理联动设置变化（比如下课隐藏浮窗）
+            if second == "hide_floating_window_on_class_end":
+                try:
+                    self._hide_on_class_end_enabled = bool(value)
+                except Exception:
+                    self._hide_on_class_end_enabled = False
+                self._apply_class_hide_timer_state()
+            # 其他 linkage 设置目前不在此处处理
+            return
         elif first == "float_position":
             if second == "x":
                 x = int(value or 0)

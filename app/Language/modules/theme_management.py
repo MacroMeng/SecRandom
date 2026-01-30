@@ -87,9 +87,31 @@ theme_management = {
         "background_mode": {
             "name": "背景类型",
             "description": "选择背景类型",
-            "combo_items": ["默认", "纯色", "图片"],
+            "combo_items": ["默认", "纯色", "图片", "渐变"],
         },
         "background_color": {"name": "背景颜色", "description": "设置背景颜色"},
+        "background_gradient_start": {
+            "name": "渐变起始色",
+            "description": "设置渐变起始颜色",
+        },
+        "background_gradient_end": {
+            "name": "渐变结束色",
+            "description": "设置渐变结束颜色",
+        },
+        "background_gradient_direction": {
+            "name": "渐变方向",
+            "description": "选择渐变方向",
+            "combo_items": [
+                "从上到下",
+                "从下到上",
+                "从左到右",
+                "从右到左",
+                "左上到右下",
+                "右下到左上",
+                "右上到左下",
+                "左下到右上",
+            ],
+        },
         "background_image": {"name": "背景图片", "description": "选择背景图片文件"},
         "background_brightness": {
             "name": "图片亮度",
@@ -227,11 +249,33 @@ theme_management = {
         "background_mode": {
             "name": "Background Type",
             "description": "Choose background type",
-            "combo_items": ["Default", "Color", "Image"],
+            "combo_items": ["Default", "Color", "Image", "Gradient"],
         },
         "background_color": {
             "name": "Background Color",
             "description": "Set background color",
+        },
+        "background_gradient_start": {
+            "name": "Gradient Start Color",
+            "description": "Set gradient start color",
+        },
+        "background_gradient_end": {
+            "name": "Gradient End Color",
+            "description": "Set gradient end color",
+        },
+        "background_gradient_direction": {
+            "name": "Gradient Direction",
+            "description": "Choose gradient direction",
+            "combo_items": [
+                "Top to Bottom",
+                "Bottom to Top",
+                "Left to Right",
+                "Right to Left",
+                "Top-Left to Bottom-Right",
+                "Bottom-Right to Top-Left",
+                "Top-Right to Bottom-Left",
+                "Bottom-Left to Top-Right",
+            ],
         },
         "background_image": {
             "name": "Background Image",

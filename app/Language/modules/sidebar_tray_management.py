@@ -8,6 +8,10 @@ floating_window_management = {
             "description": "配置浮窗外观设置",
         },
         "edge_settings": {"name": "贴边设置", "description": "配置浮窗贴边设置"},
+        "foreground_hiding_settings": {
+            "name": "前台隐藏设置",
+            "description": "配置浮窗在前台应用时的隐藏设置",
+        },
         "startup_display_floating_window": {
             "name": "启动时显示浮窗",
             "description": "控制软件启动时是否自动显示浮窗",
@@ -109,6 +113,19 @@ floating_window_management = {
             "description": "设置浮窗贴边时显示样式",
             "combo_items": ["图标", "文字", "箭头"],
         },
+        "hide_floating_window_on_foreground": {
+            "name": "前台窗口隐藏浮窗",
+            "description": "当前台窗口标题或进程名匹配时自动隐藏浮窗",
+            "switchbutton_name": {"enable": "", "disable": ""},
+        },
+        "hide_floating_window_on_foreground_window_titles": {
+            "name": "前台窗口标题",
+            "description": "用英文 ; 分隔，包含匹配时隐藏浮窗",
+        },
+        "hide_floating_window_on_foreground_process_names": {
+            "name": "前台进程名",
+            "description": "用英文 ; 分隔，如 WeChat.exe，匹配时隐藏浮窗",
+        },
         "floating_window_stick_to_edge_arrow_text": {
             "name": "抽",
             "description": "设置浮窗贴边时箭头按钮显示的文字",
@@ -140,6 +157,10 @@ floating_window_management = {
         "edge_settings": {
             "name": "Edge settings",
             "description": "Configure floating window edge settings",
+        },
+        "foreground_hiding_settings": {
+            "name": "Foreground hiding settings",
+            "description": "Configure floating window hiding settings when foreground application is active",
         },
         "startup_display_floating_window": {
             "name": "Show popup on startup",
@@ -242,6 +263,19 @@ floating_window_management = {
             "name": "Edge style",
             "description": "Configure docked floating window style",
             "combo_items": {"0": "Icon", "1": "Text", "2": "Arrow"},
+        },
+        "hide_floating_window_on_foreground": {
+            "name": "Hide floating window on foreground",
+            "description": "Hide floating window when foreground title or process matches",
+            "switchbutton_name": {"enable": "", "disable": ""},
+        },
+        "hide_floating_window_on_foreground_window_titles": {
+            "name": "Foreground window titles",
+            "description": "Use English ';' to separate, hide on substring match",
+        },
+        "hide_floating_window_on_foreground_process_names": {
+            "name": "Foreground process names",
+            "description": "Use English ';' to separate, e.g. WeChat.exe",
         },
         "floating_window_long_press_duration": {
             "name": "Long press time",

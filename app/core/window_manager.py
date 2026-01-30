@@ -754,6 +754,10 @@ class WindowManager:
         if self.float_window is None:
             self.create_float_window()
 
+        if hasattr(self.float_window, "toggle_user_requested_visible"):
+            self.float_window.toggle_user_requested_visible()
+            return
+
         if self.float_window.isVisible():
             self.float_window.hide()
         else:

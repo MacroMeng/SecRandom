@@ -350,6 +350,9 @@ DEFAULT_SETTINGS = {
         "floating_window_draggable": {"default_value": True},
         "floating_window_size": {"default_value": 3},
         "do_not_steal_focus": {"default_value": True},
+        "hide_floating_window_on_foreground": {"default_value": False},
+        "hide_floating_window_on_foreground_window_titles": {"default_value": ""},
+        "hide_floating_window_on_foreground_process_names": {"default_value": ""},
     },
     "sidebar_tray_management": {"title": {"default_value": None}},
     "sidebar_management_window": {
@@ -404,19 +407,39 @@ DEFAULT_SETTINGS = {
     "background_management": {
         "title": {"default_value": None},
         "main_window_background_mode": {"default_value": 0},
-        "main_window_background_color": {"default_value": "#ffffff"},
+        "main_window_background_color": {"default_value": "#ffd9d2"},
+        "main_window_background_gradient_start": {"default_value": "#ffd9d2"},
+        "main_window_background_gradient_end": {"default_value": "#d2fffb"},
+        "main_window_background_gradient_direction": {"default_value": 0},
+        "main_window_background_gradient_direction_v2": {"default_value": True},
         "main_window_background_image": {"default_value": ""},
         "main_window_background_brightness": {"default_value": 10},
         "main_window_background_blur_enable": {"default_value": False},
         "main_window_background_blur_radius": {"default_value": 15},
         "settings_window_background_mode": {"default_value": 0},
-        "settings_window_background_color": {"default_value": "#ffffff"},
+        "settings_window_background_color": {"default_value": "#ffd9d2"},
+        "settings_window_background_gradient_start": {"default_value": "#ffd9d2"},
+        "settings_window_background_gradient_end": {"default_value": "#d2fffb"},
+        "settings_window_background_gradient_direction": {"default_value": 0},
+        "settings_window_background_gradient_direction_v2": {"default_value": True},
         "settings_window_background_image": {"default_value": ""},
         "settings_window_background_brightness": {"default_value": 10},
         "settings_window_background_blur_enable": {"default_value": False},
         "settings_window_background_blur_radius": {"default_value": 15},
         "notification_floating_window_background_mode": {"default_value": 0},
-        "notification_floating_window_background_color": {"default_value": "#ffffff"},
+        "notification_floating_window_background_color": {"default_value": "#ffd9d2"},
+        "notification_floating_window_background_gradient_start": {
+            "default_value": "#ffd9d2"
+        },
+        "notification_floating_window_background_gradient_end": {
+            "default_value": "#d2fffb"
+        },
+        "notification_floating_window_background_gradient_direction": {
+            "default_value": 0
+        },
+        "notification_floating_window_background_gradient_direction_v2": {
+            "default_value": True
+        },
         "notification_floating_window_background_image": {"default_value": ""},
         "notification_floating_window_background_brightness": {"default_value": 10},
         "notification_floating_window_background_blur_enable": {"default_value": False},
@@ -460,6 +483,7 @@ DEFAULT_SETTINGS = {
         "verification_required": {"default_value": True},
         "instant_draw_disable": {"default_value": False},
         "data_source": {"default_value": 0},
+        "hide_floating_window_on_class_end": {"default_value": False},
         "pre_class_reset_enabled": {"default_value": False},
         "pre_class_reset_time": {"default_value": 120},
         "pre_class_enable_time": {"default_value": 0},

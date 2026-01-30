@@ -6,7 +6,10 @@ from app.tools.config import remove_record
 from app.tools.settings_access import readme_settings_async
 from app.tools.update_utils import check_for_updates_on_startup
 from app.tools.variable import APP_INIT_DELAY
-from app.core.font_manager import apply_font_settings
+from app.core.font_manager import (
+    apply_font_settings,
+    ensure_application_font_point_size,
+)
 from app.core.window_manager import WindowManager
 from app.core.utils import safe_execute
 
@@ -59,6 +62,7 @@ class AppInitializer:
             setTheme(Theme.AUTO)
         else:
             setTheme(Theme.LIGHT)
+        ensure_application_font_point_size()
 
     def _load_theme_color(self) -> None:
         """加载主题颜色"""

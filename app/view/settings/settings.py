@@ -497,39 +497,19 @@ class SettingsWindow(FluentWindow):
             dict: 侧边栏设置字典
         """
         return {
-            "base_settings": readme_settings_async(
-                "sidebar_management_settings", "base_settings"
-            ),
-            "name_management": readme_settings_async(
-                "sidebar_management_settings", "name_management"
-            ),
-            "draw_settings": readme_settings_async(
-                "sidebar_management_settings", "draw_settings"
-            ),
-            "floating_window_management": readme_settings_async(
-                "sidebar_management_settings", "floating_window_management"
-            ),
-            "notification_service": readme_settings_async(
-                "sidebar_management_settings", "notification_service"
-            ),
-            "security_settings": readme_settings_async(
-                "sidebar_management_settings", "security_settings"
-            ),
-            "linkage_settings": readme_settings_async(
-                "sidebar_management_settings", "linkage_settings"
-            ),
-            "voice_settings": readme_settings_async(
-                "sidebar_management_settings", "voice_settings"
-            ),
-            "theme_management": readme_settings_async(
-                "sidebar_management_settings", "theme_management"
-            ),
-            "settings_history": readme_settings_async(
-                "sidebar_management_settings", "settings_history"
-            ),
-            "more_settings": readme_settings_async(
-                "sidebar_management_settings", "more_settings"
-            ),
+            "base_settings": 0,
+            "name_management": 0,
+            "draw_settings": 0,
+            "floating_window_management": 0,
+            "notification_service": 0,
+            "security_settings": 0,
+            "linkage_settings": 0,
+            "voice_settings": 0,
+            "theme_management": 0,
+            "settings_history": 0,
+            "more_settings": 0,
+            "updateInterface": 0,
+            "aboutInterface": 0,
         }
 
     def _get_page_configs(self):
@@ -585,6 +565,8 @@ class SettingsWindow(FluentWindow):
             ),
             ("settings_history", "historyInterface", "history_page", True),
             ("more_settings", "moreSettingsInterface", "more_settings_page", True),
+            ("updateInterface", "updateInterface", "update_page", False),
+            ("aboutInterface", "aboutInterface", "about_page", False),
         ]
 
     def _create_page_placeholder(
@@ -716,7 +698,6 @@ class SettingsWindow(FluentWindow):
                     setting_key, interface_attr, item_attr, icon_name, module, name_key
                 )
 
-        self._add_special_navigation_items()
         self.splashScreen.finish()
         self.showMainPageRequested.connect(self._handle_main_page_requested)
 
@@ -818,6 +799,22 @@ class SettingsWindow(FluentWindow):
                 "more_settings",
                 "title",
             ),
+            (
+                "updateInterface",
+                "updateInterface",
+                "update_item",
+                "ic_fluent_arrow_sync_20_filled",
+                "update",
+                "title",
+            ),
+            (
+                "aboutInterface",
+                "aboutInterface",
+                "about_item",
+                "ic_fluent_info_20_filled",
+                "about",
+                "title",
+            ),
         ]
 
     def _add_navigation_item(
@@ -850,22 +847,6 @@ class SettingsWindow(FluentWindow):
                 position=position,
             )
             setattr(self, item_attr, nav_item)
-
-    def _add_special_navigation_items(self):
-        """添加特殊导航项（更新和关于）"""
-        self.update_item = self.addSubInterface(
-            self.updateInterface,
-            get_theme_icon("ic_fluent_arrow_sync_20_filled"),
-            get_content_name_async("update", "title"),
-            position=NavigationItemPosition.BOTTOM,
-        )
-
-        self.about_item = self.addSubInterface(
-            self.aboutInterface,
-            get_theme_icon("ic_fluent_info_20_filled"),
-            get_content_name_async("about", "title"),
-            position=NavigationItemPosition.BOTTOM,
-        )
 
     def _load_default_page(self):
         """加载默认页面（基础设置页面）"""

@@ -123,6 +123,43 @@ def _apply_system_font(font_family: str, font_weight: int) -> str:
     return font_family
 
 
+def ensure_application_font_point_size(default_point_size: int = 9) -> None:
+    """确保应用程序字体具有有效的 pointSize，避免 pointSize 为 -1/0 的情况"""
+    app_font = QApplication.font()
+    try:
+        point_size = int(app_font.pointSize())
+    except Exception:
+        point_size = -1
+
+    if point_size > 0:
+        return
+
+    try:
+        pixel_size = int(app_font.pixelSize())
+    except Exception:
+        pixel_size = 0
+
+    resolved_point_size = int(default_point_size) if int(default_point_size) > 0 else 9
+    if pixel_size > 0:
+        try:
+            screen = QApplication.primaryScreen()
+            dpi = float(screen.logicalDotsPerInch()) if screen is not None else 96.0
+            if dpi > 0:
+                resolved_point_size = max(1, int(round(pixel_size * 72.0 / dpi)))
+        except Exception:
+            pass
+
+    if resolved_point_size <= 0:
+        resolved_point_size = 9
+
+    try:
+        app_font.setPointSize(int(resolved_point_size))
+        QApplication.setFont(app_font)
+        logger.debug(f"已修正应用字体 pointSize: {resolved_point_size}")
+    except Exception as e:
+        logger.warning(f"修正应用字体 pointSize 失败: {e}")
+
+
 def configure_dpi_scale() -> None:
     """在创建QApplication之前配置DPI缩放模式"""
     try:
@@ -170,6 +207,7 @@ def apply_font_settings() -> None:
     app_font.setFamily(actual_font_family)
     app_font.setWeight(get_font_weight_value(font_weight_int))
     QApplication.setFont(app_font)
+    ensure_application_font_point_size()
     QTimer.singleShot(
         FONT_APPLY_DELAY,
         lambda: safe_execute(

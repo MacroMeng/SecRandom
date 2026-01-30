@@ -25,6 +25,7 @@ v2.3 - Shirako (砂狼白子) beta 1
 - 修复 **Linux通知** 缺少notify-send崩溃
 - 修复 **Linux浮窗** 无焦点激活异常
 - 修复 **Linux浮窗** 拖动失效
+- 修复 **字体设置** 控制台PointSize(-1)警告
 
 ## 🔧 其它变更
 

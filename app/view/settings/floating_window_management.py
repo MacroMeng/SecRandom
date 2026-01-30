@@ -44,6 +44,12 @@ class floating_window_management(QWidget):
         self.edge_settings = floating_window_edge_settings(self)
         self.vBoxLayout.addWidget(self.edge_settings)
 
+        # 创建前台应用隐藏设置
+        self.foreground_hiding_settings = floating_window_foreground_hiding_settings(
+            self
+        )
+        self.vBoxLayout.addWidget(self.foreground_hiding_settings)
+
         # 存储浮窗实例的引用
         self.levitation_window = None
 
@@ -676,4 +682,150 @@ class floating_window_edge_settings(GroupHeaderCardWidget):
             "floating_window_management",
             "floating_window_stick_to_edge_display_style",
             index,
+        )
+
+
+# ==================================================
+# 浮窗管理 - 前台应用隐藏设置
+# ==================================================
+class floating_window_foreground_hiding_settings(GroupHeaderCardWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setTitle(
+            get_content_name_async(
+                "floating_window_management", "foreground_hiding_settings"
+            )
+        )
+        self.setBorderRadius(8)
+
+        # 在前台应用时隐藏浮窗开关
+        self.hide_floating_window_on_foreground_switch = SwitchButton()
+        self.hide_floating_window_on_foreground_switch.setOffText(
+            get_content_switchbutton_name_async(
+                "floating_window_management",
+                "hide_floating_window_on_foreground",
+                "disable",
+            )
+        )
+        self.hide_floating_window_on_foreground_switch.setOnText(
+            get_content_switchbutton_name_async(
+                "floating_window_management",
+                "hide_floating_window_on_foreground",
+                "enable",
+            )
+        )
+        self.hide_floating_window_on_foreground_switch.setChecked(
+            readme_settings_async(
+                "floating_window_management", "hide_floating_window_on_foreground"
+            )
+        )
+        self.hide_floating_window_on_foreground_switch.checkedChanged.connect(
+            self.hide_floating_window_on_foreground_switch_changed
+        )
+
+        # 隐藏浮窗时的窗口标题
+        self.hide_floating_window_on_foreground_window_titles_line_edit = LineEdit()
+        self.hide_floating_window_on_foreground_window_titles_line_edit.setFixedWidth(
+            WIDTH_SPINBOX
+        )
+        self.hide_floating_window_on_foreground_window_titles_line_edit.setText(
+            str(
+                readme_settings_async(
+                    "floating_window_management",
+                    "hide_floating_window_on_foreground_window_titles",
+                )
+                or ""
+            )
+        )
+        self.hide_floating_window_on_foreground_window_titles_line_edit.editingFinished.connect(
+            self.hide_floating_window_on_foreground_window_titles_changed
+        )
+
+        # 隐藏浮窗时的进程名称
+        self.hide_floating_window_on_foreground_process_names_line_edit = LineEdit()
+        self.hide_floating_window_on_foreground_process_names_line_edit.setFixedWidth(
+            WIDTH_SPINBOX
+        )
+        self.hide_floating_window_on_foreground_process_names_line_edit.setText(
+            str(
+                readme_settings_async(
+                    "floating_window_management",
+                    "hide_floating_window_on_foreground_process_names",
+                )
+                or ""
+            )
+        )
+        self.hide_floating_window_on_foreground_process_names_line_edit.editingFinished.connect(
+            self.hide_floating_window_on_foreground_process_names_changed
+        )
+
+        self._update_foreground_hide_inputs_enabled(
+            bool(self.hide_floating_window_on_foreground_switch.isChecked())
+        )
+
+        # 添加设置项到分组
+        self.addGroup(
+            get_theme_icon("ic_fluent_window_ad_20_filled"),
+            get_content_name_async(
+                "floating_window_management", "hide_floating_window_on_foreground"
+            ),
+            get_content_description_async(
+                "floating_window_management", "hide_floating_window_on_foreground"
+            ),
+            self.hide_floating_window_on_foreground_switch,
+        )
+        self.addGroup(
+            get_theme_icon("ic_fluent_window_20_filled"),
+            get_content_name_async(
+                "floating_window_management",
+                "hide_floating_window_on_foreground_window_titles",
+            ),
+            get_content_description_async(
+                "floating_window_management",
+                "hide_floating_window_on_foreground_window_titles",
+            ),
+            self.hide_floating_window_on_foreground_window_titles_line_edit,
+        )
+        self.addGroup(
+            get_theme_icon("ic_fluent_window_20_filled"),
+            get_content_name_async(
+                "floating_window_management",
+                "hide_floating_window_on_foreground_process_names",
+            ),
+            get_content_description_async(
+                "floating_window_management",
+                "hide_floating_window_on_foreground_process_names",
+            ),
+            self.hide_floating_window_on_foreground_process_names_line_edit,
+        )
+
+    def _update_foreground_hide_inputs_enabled(self, enabled: bool):
+        try:
+            self.hide_floating_window_on_foreground_window_titles_line_edit.setEnabled(
+                bool(enabled)
+            )
+            self.hide_floating_window_on_foreground_process_names_line_edit.setEnabled(
+                bool(enabled)
+            )
+        except Exception:
+            pass
+
+    def hide_floating_window_on_foreground_switch_changed(self, checked):
+        update_settings(
+            "floating_window_management", "hide_floating_window_on_foreground", checked
+        )
+        self._update_foreground_hide_inputs_enabled(bool(checked))
+
+    def hide_floating_window_on_foreground_window_titles_changed(self):
+        update_settings(
+            "floating_window_management",
+            "hide_floating_window_on_foreground_window_titles",
+            self.hide_floating_window_on_foreground_window_titles_line_edit.text().strip(),
+        )
+
+    def hide_floating_window_on_foreground_process_names_changed(self):
+        update_settings(
+            "floating_window_management",
+            "hide_floating_window_on_foreground_process_names",
+            self.hide_floating_window_on_foreground_process_names_line_edit.text().strip(),
         )

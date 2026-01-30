@@ -582,6 +582,10 @@ class MainWindow(FluentWindow):
 
     def _toggle_float_window(self):
         """切换悬浮窗显示状态"""
+        if hasattr(self.float_window, "toggle_user_requested_visible"):
+            self.float_window.toggle_user_requested_visible()
+            return
+
         if self.float_window.isVisible():
             self.float_window.hide()
         else:

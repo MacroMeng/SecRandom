@@ -350,6 +350,9 @@ DEFAULT_SETTINGS = {
         "floating_window_draggable": {"default_value": True},
         "floating_window_size": {"default_value": 3},
         "do_not_steal_focus": {"default_value": True},
+        "hide_floating_window_on_foreground": {"default_value": False},
+        "hide_floating_window_on_foreground_window_titles": {"default_value": ""},
+        "hide_floating_window_on_foreground_process_names": {"default_value": ""},
     },
     "sidebar_tray_management": {"title": {"default_value": None}},
     "sidebar_management_window": {

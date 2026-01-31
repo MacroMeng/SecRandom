@@ -560,6 +560,16 @@ def stop_animation(widget):
 
     result = widget.manager.finalize_draw(widget.current_count, parent=widget)
     if isinstance(result, dict) and result.get("reset_required"):
+        update_many_count_label(widget)
+        if (
+            hasattr(widget, "remaining_list_page")
+            and widget.remaining_list_page is not None
+            and hasattr(widget.remaining_list_page, "count_changed")
+        ):
+            widget.remaining_list_page.count_changed.emit(widget.remaining_count)
+        QTimer.singleShot(
+            APP_INIT_DELAY, lambda: _update_remaining_list_delayed(widget)
+        )
         return
 
     widget.final_selected_students = result.get("selected_students") or []

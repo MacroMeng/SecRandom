@@ -62,6 +62,12 @@ class BehindScenesUtils:
         """
         try:
             settings = BehindScenesUtils.get_behind_scenes_settings()
+            if (
+                settings
+                and isinstance(settings, dict)
+                and not settings.get("enabled_global", True)
+            ):
+                return {"enabled": False, "probability": 1.0}
             if name in settings:
                 if mode == 0:
                     # 点名模式
@@ -100,6 +106,12 @@ class BehindScenesUtils:
         """
         try:
             settings = BehindScenesUtils.get_behind_scenes_settings()
+            if (
+                settings
+                and isinstance(settings, dict)
+                and not settings.get("enabled_global", True)
+            ):
+                return students_dict_list, [1.0] * len(students_dict_list)
 
             # 构建抽中奖品集合（用于快速查找）
             drawn_prizes = set(prize_list) if prize_list else set()
@@ -193,6 +205,12 @@ class BehindScenesUtils:
         """
         try:
             settings = BehindScenesUtils.get_behind_scenes_settings()
+            if (
+                settings
+                and isinstance(settings, dict)
+                and not settings.get("enabled_global", True)
+            ):
+                return items, [1.0] * len(items)
 
             filtered_items = []
             weights = []

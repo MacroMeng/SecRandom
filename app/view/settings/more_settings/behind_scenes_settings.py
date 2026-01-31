@@ -19,6 +19,7 @@ from app.common.safety.secure_store import (
     read_behind_scenes_settings,
     write_behind_scenes_settings,
 )
+from app.common.behind_scenes.behind_scenes_utils import BehindScenesUtils
 from app.view.settings.list_management.shared_file_watcher import (
     get_shared_file_watcher,
 )
@@ -116,6 +117,22 @@ class behind_scenes_settings_table(GroupHeaderCardWidget):
 
     def create_class_selection(self):
         """创建班级选择区域"""
+        self.enabled_global_switch = SwitchButton()
+        self.enabled_global_switch.setOffText(
+            get_content_switchbutton_name_async(
+                "behind_scenes_settings", "enabled_global", "disable"
+            )
+        )
+        self.enabled_global_switch.setOnText(
+            get_content_switchbutton_name_async(
+                "behind_scenes_settings", "enabled_global", "enable"
+            )
+        )
+        self.enabled_global_switch.setChecked(self._get_enabled_global_value())
+        self.enabled_global_switch.checkedChanged.connect(
+            self.on_enabled_global_changed
+        )
+
         # 模式选择（点名/抽奖）
         self.mode_comboBox = ComboBox()
         self.mode_comboBox.addItems(
@@ -145,6 +162,12 @@ class behind_scenes_settings_table(GroupHeaderCardWidget):
         self.pool_comboBox.currentIndexChanged.connect(self.refresh_data)
 
         self.addGroup(
+            get_theme_icon("ic_fluent_power_20_filled"),
+            get_content_name_async("behind_scenes_settings", "enabled_global"),
+            get_content_description_async("behind_scenes_settings", "enabled_global"),
+            self.enabled_global_switch,
+        )
+        self.addGroup(
             get_theme_icon("ic_fluent_lottery_20_filled"),
             get_content_name_async("behind_scenes_settings", "select_mode"),
             get_content_description_async("behind_scenes_settings", "select_mode"),
@@ -162,6 +185,26 @@ class behind_scenes_settings_table(GroupHeaderCardWidget):
             get_content_description_async("behind_scenes_settings", "select_pool_name"),
             self.pool_comboBox,
         )
+
+    def _get_enabled_global_value(self) -> bool:
+        try:
+            settings = read_behind_scenes_settings()
+            if not settings or not isinstance(settings, dict):
+                return True
+            return bool(settings.get("enabled_global", True))
+        except Exception:
+            return True
+
+    def on_enabled_global_changed(self):
+        try:
+            settings = read_behind_scenes_settings()
+            if not settings or not isinstance(settings, dict):
+                settings = {}
+            settings["enabled_global"] = bool(self.enabled_global_switch.isChecked())
+            write_behind_scenes_settings(settings)
+            BehindScenesUtils.clear_cache()
+        except Exception as e:
+            logger.exception(f"保存内幕总开关失败: {e}")
 
     def on_mode_changed(self):
         """当模式改变时，更新名单下拉框"""

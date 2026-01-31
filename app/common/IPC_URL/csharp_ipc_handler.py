@@ -3,6 +3,7 @@ import asyncio
 import threading
 from typing import Optional
 from loguru import logger
+from PySide6.QtCore import QObject, Signal
 
 from app.tools.path_utils import get_data_path
 
@@ -42,7 +43,7 @@ if sys.platform == "win32":
 
 if CSHARP_AVAILABLE:
 
-    class CSharpIPCHandler:
+    class CSharpIPCHandler(QObject):
         """C# dotnetCampus.Ipc 处理器，用于连接 ClassIsland 实例"""
 
         _instance: Optional["CSharpIPCHandler"] = None
@@ -388,8 +389,8 @@ if CSHARP_AVAILABLE:
                     await asyncio.sleep(1)
 
                     # logger.debug(f"stat: plugin({self._check_plugin_alive()}) ci({self._check_ci_alive()})")
-                    if not self._check_plugin_alive():
-                        if not self._check_ci_alive():
+                    if not self.check_plugin_alive():
+                        if not self.check_ci_alive():
                             logger.debug("C# IPC 断连！重连...")
                             self.is_connected = False
 
@@ -421,7 +422,7 @@ if CSHARP_AVAILABLE:
                 self.loop.close()
                 self.loop = None
 
-        def _check_ci_alive(self) -> bool:
+        def check_ci_alive(self) -> bool:
             """ClassIsland 是否正常连接"""
             try:
                 lessonsService = GeneratedIpcFactory.CreateIpcProxy[IPublicLessonsService](
@@ -432,7 +433,7 @@ if CSHARP_AVAILABLE:
                 logger.debug(e)
                 return False
 
-        def _check_plugin_alive(self) -> bool:
+        def check_plugin_alive(self) -> bool:
             """SecRandom-Ci 插件是否正常连接"""
             try:
                 randomService = GeneratedIpcFactory.CreateIpcProxy[ISecRandomService](
@@ -537,3 +538,11 @@ else:
         def _run_client(self):
             """运行 C# IPC 客户端"""
             pass
+
+        def check_ci_alive(self) -> bool:
+            """ClassIsland 是否正常连接"""
+            return False
+
+        def check_plugin_alive(self) -> bool:
+            """SecRandom-Ci 插件是否正常连接"""
+            return False

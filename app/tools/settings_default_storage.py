@@ -29,7 +29,6 @@ DEFAULT_SETTINGS = {
         "basic_function": {"default_value": None},
         "data_management": {"default_value": None},
         "personalised": {"default_value": None},
-        "simplified_mode": {"default_value": True},
         "autostart": {"default_value": False},
         "show_startup_window": {"default_value": True},
         "main_window_topmost_mode": {"default_value": 0},

@@ -78,24 +78,17 @@ class notification_settings_page(PivotPageTemplate):
     """创建通知服务页面"""
 
     def __init__(self, parent: QFrame = None, is_preview=False):
-        if readme_settings_async("basic_settings", "simplified_mode"):
-            page_config = {
-                "quick_draw_notification_settings": get_content_name_async(
-                    "quick_draw_notification_settings", "title"
-                ),
-            }
-        else:
-            page_config = {
-                "roll_call_notification_settings": get_content_name_async(
-                    "roll_call_notification_settings", "title"
-                ),
-                "quick_draw_notification_settings": get_content_name_async(
-                    "quick_draw_notification_settings", "title"
-                ),
-                "lottery_notification_settings": get_content_name_async(
-                    "lottery_notification_settings", "title"
-                ),
-            }
+        page_config = {
+            "roll_call_notification_settings": get_content_name_async(
+                "roll_call_notification_settings", "title"
+            ),
+            "quick_draw_notification_settings": get_content_name_async(
+                "quick_draw_notification_settings", "title"
+            ),
+            "lottery_notification_settings": get_content_name_async(
+                "lottery_notification_settings", "title"
+            ),
+        }
         super().__init__(page_config, parent, is_preview_mode=is_preview)
         self.set_base_path("app.view.settings.notification_settings")
 
@@ -183,27 +176,19 @@ class more_settings_page(PivotPageTemplate):
         # 只有点击次数 >= 10 时才显示内幕设置页面
         show_behind_scenes = click_count >= 10
 
-        if readme_settings_async("basic_settings", "simplified_mode"):
-            page_config = {}
-            page_config["shortcut_settings"] = get_content_name_async(
-                "shortcut_settings", "title"
+        page_config = {
+            "fair_draw": get_content_name_async("fair_draw_settings", "title"),
+            "shortcut_settings": get_content_name_async("shortcut_settings", "title"),
+            "music_settings": get_content_name_async("music_settings", "title"),
+            "page_management": get_content_name_async("page_management", "title"),
+            "sidebar_tray_management": get_content_name_async(
+                "sidebar_tray_management", "title"
+            ),
+        }
+        if show_behind_scenes:
+            page_config["behind_scenes_settings"] = get_content_name_async(
+                "behind_scenes_settings", "title"
             )
-        else:
-            page_config = {
-                "fair_draw": get_content_name_async("fair_draw_settings", "title"),
-                "shortcut_settings": get_content_name_async(
-                    "shortcut_settings", "title"
-                ),
-                "music_settings": get_content_name_async("music_settings", "title"),
-                "page_management": get_content_name_async("page_management", "title"),
-                "sidebar_tray_management": get_content_name_async(
-                    "sidebar_tray_management", "title"
-                ),
-            }
-            if show_behind_scenes:
-                page_config["behind_scenes_settings"] = get_content_name_async(
-                    "behind_scenes_settings", "title"
-                )
         super().__init__(page_config, parent, is_preview_mode=is_preview)
         self.set_base_path("app.view.settings.more_settings")
 

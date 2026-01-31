@@ -14,7 +14,6 @@ from app.tools.personalised import *
 from app.tools.settings_default import *
 from app.tools.settings_access import *
 from app.Language.obtain_language import *
-from app.tools.settings_visibility_manager import is_setting_visible
 
 
 # ==================================================
@@ -33,11 +32,8 @@ class quick_draw_notification_settings(QWidget):
         self.vBoxLayout.addWidget(self.basic_settings_widget)
 
         # 添加浮窗模式设置组件
-        if is_setting_visible(
-            "quick_draw_notification_settings", "floating_window_enabled_monitor"
-        ):
-            self.floating_window_widget = floating_window_settings(self)
-            self.vBoxLayout.addWidget(self.floating_window_widget)
+        self.floating_window_widget = floating_window_settings(self)
+        self.vBoxLayout.addWidget(self.floating_window_widget)
 
         # 添加 ClassIsland 通知设置组件
         self.classisland_notification_widget = classisland_notification_settings(self)

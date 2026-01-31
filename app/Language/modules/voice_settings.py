@@ -130,7 +130,7 @@ specific_announcements = {
         "mode": {
             "name": "播报模式",
             "description": "选择语音播报模式",
-            "combo_items": ["点名模式", "抽奖模式"],
+            "combo_items": ["点名", "抽奖"],
         },
         "roll_call_title": {
             "name": "点名模式配置",
@@ -182,7 +182,7 @@ specific_announcements = {
         "mode": {
             "name": "Announcements mode",
             "description": "Choose a speech mode",
-            "combo_items": {"0": "Picking mode", "1": "Lottery mode"},
+            "combo_items": {"0": "Picking", "1": "Lottery"},
         },
         "roll_call_title": {
             "name": "Picking mode configuration",

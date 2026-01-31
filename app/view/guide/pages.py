@@ -597,52 +597,11 @@ class BasicSettingsPage(QWidget):
         self.scrollLayout.addWidget(self.themeSettings)
         self.scrollLayout.addStretch(1)
 
-        self._wire_basic_function_settings()
-
         self.scrollArea.setWidget(self.scrollWidget)
 
         self.vBoxLayout.addWidget(self.titleLabel, 0, Qt.AlignmentFlag.AlignCenter)
         self.vBoxLayout.addWidget(self.subtitleLabel, 0, Qt.AlignmentFlag.AlignCenter)
         self.vBoxLayout.addWidget(self.scrollArea)
-
-    def _wire_basic_function_settings(self):
-        try:
-            switch = getattr(self.basicFunctionSettings, "simplified_mode_switch", None)
-            if isinstance(switch, QWidget):
-                switch.checkedChanged.connect(
-                    lambda _: QTimer.singleShot(
-                        0, self._rebuild_basic_function_settings
-                    )
-                )
-        except Exception:
-            pass
-
-    def _rebuild_basic_function_settings(self):
-        try:
-            old = self.basicFunctionSettings
-        except Exception:
-            return
-
-        try:
-            insert_index = self.scrollLayout.indexOf(old)
-            if insert_index < 0:
-                insert_index = 0
-        except Exception:
-            insert_index = 0
-
-        try:
-            old.setParent(None)
-            old.deleteLater()
-        except Exception:
-            pass
-
-        self.basicFunctionSettings = basic_settings_function(self.scrollWidget)
-        self.scrollLayout.insertWidget(insert_index, self.basicFunctionSettings)
-        self._wire_basic_function_settings()
-        try:
-            self.scrollWidget.updateGeometry()
-        except Exception:
-            pass
 
 
 class GuideThemeSettings(GroupHeaderCardWidget):

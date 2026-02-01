@@ -245,8 +245,6 @@ class LotteryUtils:
             }
 
         allow_repeat = half_repeat <= 0 and draw_count > len(students_with_weight)
-        if half_repeat > 0 and draw_count > len(students_with_weight):
-            return {"reset_required": True}
 
         selected_students = []
         selected_students_dict = []

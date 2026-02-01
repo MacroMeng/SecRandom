@@ -560,6 +560,16 @@ def stop_animation(widget):
 
     result = widget.manager.finalize_draw(widget.current_count, parent=widget)
     if isinstance(result, dict) and result.get("reset_required"):
+        update_many_count_label(widget)
+        if (
+            hasattr(widget, "remaining_list_page")
+            and widget.remaining_list_page is not None
+            and hasattr(widget.remaining_list_page, "count_changed")
+        ):
+            widget.remaining_list_page.count_changed.emit(widget.remaining_count)
+        QTimer.singleShot(
+            APP_INIT_DELAY, lambda: _update_remaining_list_delayed(widget)
+        )
         return
 
     widget.final_selected_students = result.get("selected_students") or []
@@ -588,13 +598,23 @@ def stop_animation(widget):
 
     if hasattr(widget, "final_selected_students"):
         if not is_quick_draw:
+            actual_draw_count = (
+                len(widget.final_selected_students)
+                if widget.final_selected_students
+                else 0
+            )
+            if actual_draw_count <= 0:
+                actual_draw_count = widget.current_count
             display_result(
-                widget, widget.final_selected_students, widget.final_class_name
+                widget,
+                widget.final_selected_students,
+                widget.final_class_name,
+                draw_count=actual_draw_count,
             )
             RollCallUtils.show_notification_if_enabled(
                 class_name=widget.final_class_name,
                 selected_students=widget.final_selected_students,
-                draw_count=widget.current_count,
+                draw_count=actual_draw_count,
                 settings_group="roll_call_notification_settings",
             )
 
@@ -650,40 +670,57 @@ def play_voice_result(widget):
 
 def draw_random(widget):
     if widget.is_animating:
-        students = widget.manager.get_random_students(widget.current_count)
+        display_count = widget.current_count
+        try:
+            remaining_count = int(getattr(widget, "remaining_count", 0) or 0)
+        except Exception:
+            remaining_count = 0
+        if remaining_count > 0:
+            display_count = min(display_count, remaining_count)
+
+        students = widget.manager.get_random_students(display_count)
         selected_students = []
         for s in students:
             exist = s[4] if len(s) > 4 else True
             selected_students.append((s[0], s[1], exist))
 
         display_result_animated(
-            widget, selected_students, widget.manager.current_class_name
+            widget,
+            selected_students,
+            widget.manager.current_class_name,
+            draw_count=display_count,
         )
 
 
-def display_result(widget, selected_students, class_name, display_settings=None):
+def display_result(
+    widget, selected_students, class_name, display_settings=None, draw_count=None
+):
     group_index = widget.range_combobox.currentIndex()
     settings_group = "quick_draw_settings" if display_settings else "roll_call_settings"
+    if draw_count is None:
+        draw_count = widget.current_count
 
     RollCallUtils.display_result(
         result_grid=widget.result_grid,
         class_name=class_name,
         selected_students=selected_students,
-        draw_count=widget.current_count,
+        draw_count=draw_count,
         group_index=group_index,
         settings_group=settings_group,
         display_settings=display_settings,
     )
 
 
-def display_result_animated(widget, selected_students, class_name):
+def display_result_animated(widget, selected_students, class_name, draw_count=None):
     group_index = widget.range_combobox.currentIndex()
     display_dict = RollCallUtils.create_display_settings("roll_call_settings")
+    if draw_count is None:
+        draw_count = widget.current_count
 
     student_labels = ResultDisplayUtils.create_student_label(
         class_name=class_name,
         selected_students=selected_students,
-        draw_count=widget.current_count,
+        draw_count=draw_count,
         font_size=display_dict["font_size"],
         animation_color=display_dict["animation_color"],
         display_format=display_dict["display_format"],

@@ -468,6 +468,9 @@ class RollCallUtils:
             group_filter: 小组过滤器
         """
         reset_drawn_record(window, class_name, gender_filter, group_filter)
+        record_key = f"{class_name}_{gender_filter}_{group_filter}"
+        if record_key in RollCallUtils._drawn_record_cache:
+            del RollCallUtils._drawn_record_cache[record_key]
 
     @staticmethod
     def update_start_button_state(button, total_count):

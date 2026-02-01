@@ -879,6 +879,14 @@ def stop_animation(widget):
     )
 
     if isinstance(result, dict) and result.get("reset_required"):
+        update_many_count_label(widget)
+        if (
+            hasattr(widget, "remaining_list_page")
+            and widget.remaining_list_page is not None
+            and hasattr(widget.remaining_list_page, "count_changed")
+        ):
+            widget.remaining_list_page.count_changed.emit(widget.remaining_count)
+        QTimer.singleShot(APP_INIT_DELAY, widget._update_remaining_list_delayed)
         return
 
     widget.final_selected_students = result.get("selected_prizes") or result.get(
@@ -915,7 +923,17 @@ def stop_animation(widget):
         QTimer.singleShot(APP_INIT_DELAY, widget._update_remaining_list_delayed)
 
     if widget.final_selected_students is not None:
-        display_result(widget, widget.final_selected_students, widget.final_pool_name)
+        actual_draw_count = (
+            len(widget.final_selected_students) if widget.final_selected_students else 0
+        )
+        if actual_draw_count <= 0:
+            actual_draw_count = widget.current_count
+        display_result(
+            widget,
+            widget.final_selected_students,
+            widget.final_pool_name,
+            draw_count=actual_draw_count,
+        )
 
         settings = widget.manager.get_notification_settings(refresh=True)
         if settings is not None:
@@ -927,11 +945,11 @@ def stop_animation(widget):
             )
 
             if use_main_window_when_exceed_threshold:
-                if widget.current_count <= max_notify_count:
+                if actual_draw_count <= max_notify_count:
                     ResultDisplayUtils.show_notification_if_enabled(
                         widget.final_pool_name,
                         widget.final_selected_students,
-                        widget.current_count,
+                        actual_draw_count,
                         settings,
                         settings_group="lottery_notification_settings",
                     )
@@ -939,7 +957,7 @@ def stop_animation(widget):
                 ResultDisplayUtils.show_notification_if_enabled(
                     widget.final_pool_name,
                     widget.final_selected_students,
-                    widget.current_count,
+                    actual_draw_count,
                     settings,
                     settings_group="lottery_notification_settings",
                 )
@@ -981,20 +999,33 @@ def play_voice_result(widget):
 
 def draw_random(widget):
     if widget.is_animating:
-        prizes = widget.manager.get_random_items(widget.current_count)
+        display_count = widget.current_count
+        try:
+            remaining_count = int(getattr(widget, "remaining_count", 0) or 0)
+        except Exception:
+            remaining_count = 0
+        if remaining_count > 0:
+            display_count = min(display_count, remaining_count)
+
+        prizes = widget.manager.get_random_items(display_count)
         selected_prizes = [(p["id"], p["name"], p.get("exist", True)) for p in prizes]
 
         display_result_animated(
-            widget, selected_prizes, widget.manager.current_pool_name
+            widget,
+            selected_prizes,
+            widget.manager.current_pool_name,
+            draw_count=display_count,
         )
 
 
-def display_result(widget, selected_students, pool_name):
+def display_result(widget, selected_students, pool_name, draw_count=None):
     render_settings = widget.manager.get_render_settings(refresh=True)
+    if draw_count is None:
+        draw_count = widget.current_count
     student_labels = ResultDisplayUtils.create_student_label(
         pool_name,
         selected_students=selected_students,
-        draw_count=widget.current_count,
+        draw_count=draw_count,
         font_size=render_settings["font_size"],
         animation_color=render_settings["animation_color"],
         display_format=render_settings["display_format"],
@@ -1020,13 +1051,15 @@ def display_result(widget, selected_students, pool_name):
         ResultDisplayUtils.display_results_in_grid(widget.result_grid, student_labels)
 
 
-def display_result_animated(widget, selected_students, pool_name):
+def display_result_animated(widget, selected_students, pool_name, draw_count=None):
     render_settings = widget.manager.get_render_settings(refresh=False)
+    if draw_count is None:
+        draw_count = widget.current_count
 
     student_labels = ResultDisplayUtils.create_student_label(
         class_name=pool_name,
         selected_students=selected_students,
-        draw_count=widget.current_count,
+        draw_count=draw_count,
         font_size=render_settings["font_size"],
         animation_color=render_settings["animation_color"],
         display_format=render_settings["display_format"],
@@ -1056,7 +1089,7 @@ def display_result_animated(widget, selected_students, pool_name):
         ResultDisplayUtils.show_notification_if_enabled(
             pool_name,
             selected_students,
-            widget.current_count,
+            draw_count,
             settings,
             settings_group="lottery_notification_settings",
             is_animating=True,

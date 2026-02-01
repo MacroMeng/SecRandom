@@ -246,6 +246,11 @@ about = {
 behind_scenes_settings = {
     "ZH_CN": {
         "title": {"name": "内幕设置", "description": "设置特定人员的抽取概率"},
+        "enabled_global": {
+            "name": "内幕总开关",
+            "description": "开启后启用内幕权重与必中规则",
+            "switchbutton_name": {"enable": "", "disable": ""},
+        },
         "select_mode": {"name": "选择模式", "description": "选择点名或抽奖模式"},
         "mode_options": {"combo_items": ["点名", "抽奖"]},
         "select_list": {"name": "选择名单", "description": "选择要设置概率的名单"},
@@ -267,6 +272,11 @@ behind_scenes_settings = {
         "title": {
             "name": "Behind the Scenes Settings",
             "description": "Set draw probability for specific persons",
+        },
+        "enabled_global": {
+            "name": "Master switch",
+            "description": "Enable behind-scenes weights and guaranteed rules",
+            "switchbutton_name": {"enable": "", "disable": ""},
         },
         "select_mode": {
             "name": "Select Mode",
@@ -301,6 +311,11 @@ behind_scenes_settings = {
         "title": {
             "name": "裏設定",
             "description": "特定の人物の抽選確率を設定",
+        },
+        "enabled_global": {
+            "name": "裏設定の総スイッチ",
+            "description": "オンにすると重み付けと必中ルールを有効化",
+            "switchbutton_name": {"enable": "", "disable": ""},
         },
         "select_mode": {
             "name": "モード選択",
